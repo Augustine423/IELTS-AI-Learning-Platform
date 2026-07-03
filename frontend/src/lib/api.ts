@@ -1,0 +1,175 @@
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+export type Accent = "uk" | "us" | "au";
+export type Gender = "female" | "male";
+export type Skill = "listening" | "speaking" | "reading" | "writing";
+
+export interface VoicePreferences {
+  accent: Accent;
+  gender: Gender;
+}
+
+export interface ChatMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+}
+
+export interface SkillInfo {
+  id: Skill;
+  name: string;
+  description: string;
+  icon: string;
+}
+
+export interface ProviderConfig {
+  llm_provider: string;
+  llm_model: string;
+  stt_provider: string;
+  tts_provider: string;
+  available_accents: string[];
+  available_genders: string[];
+}
+
+export async function fetchSkills(): Promise<SkillInfo[]> {
+  const res = await fetch(`${API_URL}/api/skills`);
+  if (!res.ok) throw new Error("Failed to fetch skills");
+  return res.json();
+}
+
+export async function fetchConfig(): Promise<ProviderConfig> {
+  const res = await fetch(`${API_URL}/api/config`);
+  if (!res.ok) throw new Error("Failed to fetch config");
+  return res.json();
+}
+
+export async function fetchHealth(): Promise<{
+  status: string;
+  ollama_available: boolean;
+  llm_provider: string;
+  llm_model: string;
+}> {
+  const res = await fetch(`${API_URL}/health`);
+  if (!res.ok) throw new Error("Backend unavailable");
+  return res.json();
+}
+
+export async function sendChat(
+  skill: Skill,
+  messages: ChatMessage[],
+  voicePreferences: VoicePreferences
+): Promise<string> {
+  const res = await fetch(`${API_URL}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      skill,
+      messages,
+      voice_preferences: voicePreferences,
+      stream: false,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Chat request failed");
+  }
+  const data = await res.json();
+  return data.content;
+}
+
+export function streamChat(
+  skill: Skill,
+  messages: ChatMessage[],
+  voicePreferences: VoicePreferences,
+  onChunk: (text: string) => void,
+  onDone: () => void,
+  onError: (err: string) => void
+): () => void {
+  const controller = new AbortController();
+
+  fetch(`${API_URL}/api/chat/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      skill,
+      messages,
+      voice_preferences: voicePreferences,
+      stream: true,
+    }),
+    signal: controller.signal,
+  })
+    .then(async (res) => {
+      if (!res.ok) throw new Error("Stream failed");
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("No reader");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.content) onChunk(data.content);
+              if (data.error) onError(data.error);
+            } catch {
+              // skip malformed SSE lines
+            }
+          }
+        }
+      }
+      onDone();
+    })
+    .catch((e) => {
+      if (e.name !== "AbortError") onError(e.message);
+    });
+
+  return () => controller.abort();
+}
+
+export async function textToSpeech(
+  text: string,
+  voicePreferences: VoicePreferences
+): Promise<string> {
+  const res = await fetch(`${API_URL}/api/voice/tts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, voice_preferences: voicePreferences }),
+  });
+  if (!res.ok) throw new Error("TTS failed");
+  const data = await res.json();
+  return `data:${data.content_type};base64,${data.audio_base64}`;
+}
+
+export async function speechToText(audioBlob: Blob): Promise<string> {
+  const formData = new FormData();
+  formData.append("audio", audioBlob, "recording.webm");
+  const res = await fetch(`${API_URL}/api/voice/stt`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "STT failed");
+  }
+  const data = await res.json();
+  return data.transcript;
+}
+
+export const SKILL_STARTERS: Record<Skill, string> = {
+  listening:
+    "I'd like to practice IELTS Listening. Please give me a Section 2 style monologue with 5 comprehension questions.",
+  speaking:
+    "Let's practice IELTS Speaking Part 1. Please ask me warm-up questions about my hometown and daily life.",
+  reading:
+    "I'd like an IELTS Academic Reading passage about environmental science with True/False/Not Given questions.",
+  writing:
+    "I want to practice IELTS Writing Task 2. Please give me an opinion essay topic and I'll write my response.",
+};

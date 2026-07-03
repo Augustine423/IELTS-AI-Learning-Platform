@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ielts-ai-frontend
+  namespace: ielts-ai
+  labels:
+    app.kubernetes.io/name: ielts-ai-frontend
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: ielts-ai
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ielts-ai-frontend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ielts-ai-frontend
+        app.kubernetes.io/component: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: kyawzayarsoe/ielts-ai-frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          env:
+            # Runtime env for server-side; client API URL is baked at image build time.
+            - name: NODE_ENV
+              value: production
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
