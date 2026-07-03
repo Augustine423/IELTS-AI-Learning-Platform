@@ -1,30 +1,58 @@
 services:
+  ollama:
+    image: ollama/ollama:latest
+    pull_policy: always
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+
+  ollama-pull:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Pulling llama3.2 model (first run may take several minutes)..."
+        ollama pull llama3.2
+        echo "Model ready."
+    restart: "no"
+
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: kyawzayarsoe/ielts-ai-backend:latest
+    pull_policy: always
     ports:
       - "8000:8000"
     environment:
-      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - OLLAMA_BASE_URL=http://ollama:11434
       - FRONTEND_URL=http://localhost:3000
     volumes:
-      - ./backend/config.yaml:/app/config.yaml:ro
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - ./docker/config.yaml:/app/config.yaml:ro
+    depends_on:
+      ollama:
+        condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 15s
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: http://localhost:8000
+    image: kyawzayarsoe/ielts-ai-frontend:latest
+    pull_policy: always
     ports:
       - "3000:3000"
     environment:
@@ -38,3 +66,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+
+volumes:
+  ollama_data:

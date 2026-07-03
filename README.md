@@ -169,17 +169,22 @@ No frontend changes required.
 
 ## Docker
 
-Build and run locally:
+Pull pre-built images from Docker Hub (built by GitHub Actions) and run:
 
 ```bash
-docker compose up --build
+docker compose pull
+docker compose up
 ```
 
-Build images individually:
+Images used:
+- `kyawzayarsoe/ielts-ai-backend:latest`
+- `kyawzayarsoe/ielts-ai-frontend:latest`
+
+To build images locally instead (optional):
 
 ```bash
-docker build -t ielts-ai-backend ./backend
-docker build -t ielts-ai-frontend --build-arg NEXT_PUBLIC_API_URL=http://localhost:8000 ./frontend
+docker build -t kyawzayarsoe/ielts-ai-backend ./backend
+docker build -t kyawzayarsoe/ielts-ai-frontend --build-arg NEXT_PUBLIC_API_URL=http://localhost:8000 ./frontend
 ```
 
 ---

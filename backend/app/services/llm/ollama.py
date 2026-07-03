@@ -1,3 +1,6 @@
+import json
+import time
+from pathlib import Path
 from typing import AsyncIterator
 
 import httpx
@@ -6,6 +9,31 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
 from app.config import get_config, get_settings
 from app.services.llm.base import BaseLLM
+
+
+# region agent log
+def _debug_log(location: str, message: str, data: dict, hypothesis_id: str) -> None:
+    payload = {
+        "sessionId": "e8ee54",
+        "timestamp": int(time.time() * 1000),
+        "location": location,
+        "message": message,
+        "data": data,
+        "hypothesisId": hypothesis_id,
+        "runId": data.get("runId", "pre-fix"),
+    }
+    for log_path in (
+        Path(__file__).resolve().parents[4] / "debug-e8ee54.log",
+        Path("/app/debug-e8ee54.log"),
+        Path("debug-e8ee54.log"),
+    ):
+        try:
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(payload) + "\n")
+            break
+        except OSError:
+            continue
+# endregion
 
 
 def _to_langchain_messages(messages: list[dict], system_prompt: str = ""):
@@ -53,6 +81,11 @@ class OllamaLLM(BaseLLM):
         return response.content
 
     async def stream(self, messages: list[dict], system_prompt: str = "") -> AsyncIterator[str]:
+        if not await self.is_available():
+            raise ConnectionError(
+                f"Cannot reach Ollama at {self.base_url}. "
+                f"Ensure Ollama is running and model '{self.model}' is pulled."
+            )
         client = self._get_client()
         lc_messages = _to_langchain_messages(messages, system_prompt)
         async for chunk in client.astream(lc_messages):
