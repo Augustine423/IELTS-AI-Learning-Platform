@@ -1,15 +1,34 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_config
 from app.models.schemas import HealthResponse
 from app.services.llm.factory import get_llm
+from app.services.voice.stt.factory import get_stt
 from app.routers import chat, voice, skills
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    config = get_config()
+    if config.get("stt", {}).get("provider", "whisper") == "whisper":
+        try:
+            get_stt()
+            from app.services.voice.stt.whisper import warmup_whisper_model
+
+            warmup_whisper_model()
+        except Exception as exc:
+            print(f"Whisper warmup skipped: {exc}")
+    yield
+
 
 app = FastAPI(
     title="IELTS AI Learning API",
     description="Offline-first IELTS tutor with voice, configurable accents, and pluggable LLM engines.",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(

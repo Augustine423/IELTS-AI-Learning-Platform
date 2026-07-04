@@ -40,11 +40,22 @@ Ask which task type and topic the student wants to practice.""",
 }
 
 
-def get_system_prompt(skill: str, accent: str = "uk") -> str:
+def get_system_prompt(
+    skill: str, accent: str = "uk", web_context: str = ""
+) -> str:
     base = SKILL_PROMPTS.get(skill, SKILL_PROMPTS["reading"])
     accent_note = {
         "uk": "Use British English spelling and expressions (colour, organise, whilst).",
         "us": "Use American English spelling and expressions (color, organize, while).",
         "au": "Use Australian English where natural; British spelling is acceptable.",
     }.get(accent, "")
-    return f"{base}\n\nLanguage note: {accent_note}"
+
+    voice_note = (
+        "\n\nVoice conversation mode: Keep replies concise (2-4 sentences) so they "
+        "sound natural when spoken aloud. Ask one clear follow-up question when appropriate."
+    )
+
+    prompt = f"{base}\n\nLanguage note: {accent_note}{voice_note}"
+    if web_context:
+        prompt += f"\n\n{web_context}"
+    return prompt

@@ -57,7 +57,8 @@ export async function fetchHealth(): Promise<{
 export async function sendChat(
   skill: Skill,
   messages: ChatMessage[],
-  voicePreferences: VoicePreferences
+  voicePreferences: VoicePreferences,
+  useWebSearch = false
 ): Promise<string> {
   const res = await fetch(`${API_URL}/api/chat`, {
     method: "POST",
@@ -67,6 +68,7 @@ export async function sendChat(
       messages,
       voice_preferences: voicePreferences,
       stream: false,
+      use_web_search: useWebSearch,
     }),
   });
   if (!res.ok) {
@@ -162,6 +164,36 @@ export async function speechToText(audioBlob: Blob): Promise<string> {
   }
   const data = await res.json();
   return data.transcript;
+}
+
+/** Play TTS and return handles to stop or await completion. */
+export function speakText(
+  text: string,
+  voicePreferences: VoicePreferences
+): { stop: () => void; done: Promise<void> } {
+  let audio: HTMLAudioElement | null = null;
+  let stopped = false;
+
+  const done = (async () => {
+    const dataUrl = await textToSpeech(text, voicePreferences);
+    if (stopped) return;
+
+    await new Promise<void>((resolve, reject) => {
+      audio = new Audio(dataUrl);
+      audio.onended = () => resolve();
+      audio.onerror = () => reject(new Error("Playback failed"));
+      audio.play().catch(reject);
+    });
+  })();
+
+  return {
+    stop: () => {
+      stopped = true;
+      audio?.pause();
+      audio = null;
+    },
+    done: done.catch(() => undefined),
+  };
 }
 
 export const SKILL_STARTERS: Record<Skill, string> = {

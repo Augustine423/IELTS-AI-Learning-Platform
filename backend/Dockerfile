@@ -23,12 +23,24 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 COPY app ./app
 COPY config.yaml .
 
-RUN addgroup --system app && adduser --system --ingroup app app
+RUN addgroup --system app && adduser --system --ingroup app --home /app app \
+    && mkdir -p /app/.cache/huggingface /app/.cache/whisper /app/tmp \
+    && chown -R app:app /app
+
+ENV HOME=/app \
+    HF_HOME=/app/.cache/huggingface \
+    WHISPER_CACHE_DIR=/app/.cache/whisper \
+    TMPDIR=/app/tmp
+
+# Pre-download whisper model so STT works offline in the container
+RUN python -c "from faster_whisper import WhisperModel; WhisperModel('tiny', device='cpu', compute_type='int8', download_root='/app/.cache/whisper')" \
+    && chown -R app:app /app/.cache
+
 USER app
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')" || exit 1
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

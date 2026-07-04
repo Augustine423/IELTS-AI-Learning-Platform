@@ -1,23 +1,35 @@
 services:
   backend:
+    build: ./backend
     image: kyawzayarsoe/ielts-ai-backend:latest
-    pull_policy: always
+    pull_policy: build
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8000:8000"
     environment:
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - HOME=/app
+      - HF_HOME=/app/.cache/huggingface
+      - WHISPER_CACHE_DIR=/app/.cache/whisper
+      - TMPDIR=/app/tmp
+      - HOME=/app
+      - HF_HOME=/app/.cache/huggingface
+      - WHISPER_CACHE_DIR=/app/.cache/whisper
+      - TMPDIR=/app/tmp
     volumes:
       - ./docker/config.yaml:/app/config.yaml:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
       interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
 
   frontend:
+    build: ./frontend
     image: kyawzayarsoe/ielts-ai-frontend:latest
-    pull_policy: always
+    pull_policy: build
     ports:
       - "3000:3000"
     environment:

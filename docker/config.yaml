@@ -7,7 +7,7 @@ llm:
 
 stt:
   provider: whisper
-  model: base
+  model: tiny
   language: en
 
 tts:

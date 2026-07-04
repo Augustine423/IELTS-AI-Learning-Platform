@@ -36,6 +36,7 @@ class ChatRequest(BaseModel):
     messages: list[ChatMessage]
     voice_preferences: VoicePreferences = Field(default_factory=VoicePreferences)
     stream: bool = True
+    use_web_search: bool = False
 
 
 class ChatResponse(BaseModel):

@@ -8,7 +8,7 @@ import {
   streamChat,
   SKILL_STARTERS,
 } from "@/lib/api";
-import { AudioRecorder } from "./AudioRecorder";
+import { VoiceConversation } from "./VoiceConversation";
 import { AudioPlayer } from "./AudioPlayer";
 import { Send, Loader2 } from "lucide-react";
 
@@ -64,7 +64,10 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
       (err) => {
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", content: `Error: ${err}. Is Ollama running? Try: ollama pull llama3.2` },
+          {
+            role: "assistant",
+            content: `Error: ${err}. Is Ollama running? Try: ollama pull llama3.2`,
+          },
         ]);
         setStreamingText("");
         setLoading(false);
@@ -81,8 +84,11 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
       <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[400px]">
         {messages.length === 0 && !streamingText && (
           <div className="text-center py-12">
-            <p className="text-slate-500 mb-4">
-              Start your {skill} practice session. The AI tutor will adapt to your level.
+            <p className="text-slate-500 mb-2">
+              Start your {skill} practice session. The AI tutor adapts to your level.
+            </p>
+            <p className="text-slate-400 text-sm mb-6">
+              Tap the mic for hands-free voice conversation, or type below.
             </p>
             <button
               onClick={handleStarter}
@@ -134,16 +140,14 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
       </div>
 
       <div className="border-t border-slate-200 bg-white p-4">
-        <div className="flex items-end gap-2">
-          {(skill === "speaking" || skill === "listening") && (
-            <AudioRecorder
-              onTranscript={(text) => {
-                setInput(text);
-                sendMessage(text);
-              }}
-              disabled={loading}
-            />
-          )}
+        <div className="flex items-end gap-3">
+          <VoiceConversation
+            skill={skill}
+            voicePreferences={voicePreferences}
+            messages={messages}
+            onMessagesChange={setMessages}
+            disabled={loading}
+          />
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -156,7 +160,7 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
             placeholder={
               skill === "writing"
                 ? "Paste your essay here..."
-                : "Type your message..."
+                : "Or type your message..."
             }
             rows={2}
             className="flex-1 resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ielts-blue focus:border-transparent"

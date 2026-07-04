@@ -50,9 +50,17 @@ async def speech_to_text(audio: UploadFile = File(...)):
     audio_bytes = await audio.read()
     content_type = audio.content_type or "audio/webm"
 
+    if len(audio_bytes) < 1000:
+        raise HTTPException(
+            status_code=400,
+            detail="Recording too short. Hold the mic button and speak for at least 1 second.",
+        )
+
     try:
         transcript, confidence = await stt.transcribe(audio_bytes, content_type)
         return STTResponse(transcript=transcript, confidence=confidence)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
