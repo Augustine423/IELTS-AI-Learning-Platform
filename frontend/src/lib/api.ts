@@ -1,4 +1,5 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// Same-origin proxy in Docker/k8s/VM deploys; optional direct URL for local overrides.
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api/backend";
 
 export type Accent = "uk" | "us" | "au";
 export type Gender = "female" | "male";

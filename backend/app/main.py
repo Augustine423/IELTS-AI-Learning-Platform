@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import get_settings, get_config
+from app.config import get_config
 from app.models.schemas import HealthResponse
 from app.services.llm.factory import get_llm
 from app.routers import chat, voice, skills
@@ -12,10 +12,9 @@ app = FastAPI(
     version="1.0.0",
 )
 
-settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url, "http://localhost:3000"],
+    allow_origin_regex=r"https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

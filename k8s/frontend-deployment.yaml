@@ -27,9 +27,10 @@ spec:
               containerPort: 3000
               protocol: TCP
           env:
-            # Runtime env for server-side; client API URL is baked at image build time.
             - name: NODE_ENV
               value: production
+            - name: API_INTERNAL_URL
+              value: http://ielts-ai-backend:8000
           resources:
             requests:
               cpu: 100m

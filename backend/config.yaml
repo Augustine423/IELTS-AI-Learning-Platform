@@ -6,8 +6,8 @@ llm:
   max_tokens: 2048
 
 stt:
-  provider: deepgram
-  model: nova-2
+  provider: whisper
+  model: base
   language: en
 
 tts:

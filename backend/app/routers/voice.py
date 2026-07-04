@@ -4,7 +4,7 @@ from fastapi import APIRouter, File, UploadFile, HTTPException
 
 from app.models.schemas import TTSRequest, TTSResponse, STTResponse
 from app.services.voice.tts.factory import get_tts, list_voices
-from app.services.voice.stt.factory import get_stt
+from app.services.voice.stt.factory import get_stt, is_free_stt_provider
 from app.config import get_config, get_settings
 
 router = APIRouter(prefix="/api/voice", tags=["voice"])
@@ -30,20 +30,21 @@ async def text_to_speech(request: TTSRequest):
 async def speech_to_text(audio: UploadFile = File(...)):
     settings = get_settings()
     config = get_config()
-    provider = config.get("stt", {}).get("provider", "deepgram")
+    provider = config.get("stt", {}).get("provider", "whisper")
 
-    api_key = (
-        settings.deepgram_api_key
-        if provider == "deepgram"
-        else settings.assemblyai_api_key
-    )
-    if not api_key:
-        raise HTTPException(
-            status_code=400,
-            detail=f"No API key for STT provider '{provider}'. "
-            "Add DEEPGRAM_API_KEY or ASSEMBLYAI_API_KEY to .env, "
-            "or use text input instead.",
+    if not is_free_stt_provider(provider):
+        api_key = (
+            settings.deepgram_api_key
+            if provider == "deepgram"
+            else settings.assemblyai_api_key
         )
+        if not api_key:
+            raise HTTPException(
+                status_code=400,
+                detail=f"No API key for STT provider '{provider}'. "
+                "Add DEEPGRAM_API_KEY or ASSEMBLYAI_API_KEY to .env, "
+                "or switch stt.provider to whisper in config.yaml.",
+            )
 
     stt = get_stt()
     audio_bytes = await audio.read()

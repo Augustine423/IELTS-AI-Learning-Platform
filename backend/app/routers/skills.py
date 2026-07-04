@@ -2,7 +2,8 @@ from fastapi import APIRouter
 
 from app.models.schemas import SkillInfo, Skill, ProviderConfig
 from app.config import get_config
-from app.services.llm.factory import get_llm, list_llm_providers
+from app.services.llm.factory import list_llm_providers
+from app.services.voice.stt.factory import list_stt_providers
 from app.services.voice.tts.factory import list_voices
 
 router = APIRouter(prefix="/api", tags=["skills"])
@@ -49,7 +50,7 @@ async def get_provider_config():
     return ProviderConfig(
         llm_provider=llm_cfg.get("provider", "ollama"),
         llm_model=llm_cfg.get("model", "llama3.2"),
-        stt_provider=stt_cfg.get("provider", "deepgram"),
+        stt_provider=stt_cfg.get("provider", "whisper"),
         tts_provider=tts_cfg.get("provider", "edge"),
         available_accents=["uk", "us", "au"],
         available_genders=["female", "male"],
@@ -60,5 +61,6 @@ async def get_provider_config():
 async def get_providers():
     return {
         "llm": list_llm_providers(),
+        "stt": list_stt_providers(),
         "voices": list_voices(),
     }
