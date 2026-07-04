@@ -2,7 +2,7 @@
 
 An offline-first IELTS tutor with voice conversation, configurable accents (UK / US / Australian), and support for all four skills: **Listening**, **Speaking**, **Reading**, and **Writing**.
 
-> **Quickest path:** Install [Ollama](https://ollama.com) + [Docker Desktop](https://www.docker.com/products/docker-desktop/) → pull a free model → `docker compose up` → open http://localhost:3000
+> **Quickest path:** Install [Ollama](https://ollama.com) + [Docker Desktop](https://www.docker.com/products/docker-desktop/) → **download a local model** → `.\scripts\start.ps1` → open http://localhost:3000
 
 ---
 
@@ -12,8 +12,8 @@ An offline-first IELTS tutor with voice conversation, configurable accents (UK /
 
 | Option | Cost | Best for | Verdict |
 |--------|------|----------|---------|
-| **Ollama** (free local models) | Free, offline | Writing feedback, reading Q&A, speaking prompts | **Primary choice** |
-| Ollama cloud models (`:cloud` tag) | Free, online | No GPU / no disk space — runs on Ollama's servers | **Easiest setup** |
+| **Ollama** (free local models) | Free, offline | Writing feedback, reading Q&A, speaking prompts | **Required — download before first run** |
+| Ollama cloud models (`:cloud` tag) | Free tier, online | — | **Not supported** — usage limits, needs Ollama servers |
 | Groq (Llama 3) | Free tier online | Fast fallback when Ollama is slow | Optional online |
 | OpenRouter | Pay-per-use | Future premium models | Plug-in ready |
 
@@ -55,36 +55,48 @@ Pluggable LLM, STT, and TTS providers via a factory pattern. Add new engines in 
 
 ## Quick Start (Recommended — Docker)
 
-The fastest way to get the app running. Uses **your local Ollama** (not an in-container one) so you stay in control of models, GPU usage, and storage.
+Uses **your local Ollama** with a **locally downloaded model**. Cloud models (`:cloud`) are not used — they need Ollama's servers and can hit usage limits.
 
 ### Prerequisites
 
 1. **[Docker Desktop](https://www.docker.com/products/docker-desktop/)** — installed and running
-2. **[Ollama](https://ollama.com/download)** — installed and running (`ollama serve`)
+2. **[Ollama](https://ollama.com/download)** — installed and running
 
-### 1. Pull a free model
+### 1. Download a local model (required)
 
-Pick **one** of the free models below. If you don't know which, start with the recommended option:
+The app will not start until a **local** model is installed on your machine.
 
-```bash
-# Recommended — small, fast, runs anywhere (incl. CPU)
-ollama pull llama3.2
-
-# Better IELTS writing feedback (heavier, ~4.7 GB)
-ollama pull qwen2.5:7b
-
-# Or use Ollama's free cloud model (no download, needs internet)
-# Already works if you've signed in to ollama.com once
-ollama pull nemotron-3-super:cloud
+**Windows (offline / blocked network):**
+```powershell
+copy docker\.env.example docker\.env   # enables OFFLINE=1
+.\scripts\setup-model.ps1 -Offline       # shows import steps, skips pull
 ```
+
+**Linux / macOS:**
+```bash
+chmod +x scripts/*.sh
+./scripts/setup-model.sh
+```
+
+This downloads `llama3.2` (~2 GB) by default. If `ollama pull` works on your network, the script handles it automatically.
+
+**Blocked by firewall or country restrictions?** See [Offline model import](#offline-model-import-restricted-networks) below.
 
 ### 2. Start the app
 
-```bash
-docker compose up
+**Windows:**
+```powershell
+.\scripts\start.ps1
 ```
 
-First run will pull images from Docker Hub (~200 MB total). After that it starts in seconds.
+**Linux / macOS:**
+```bash
+./scripts/start.sh
+```
+
+The start script checks the local model first, then runs `docker compose up`.
+
+First run will pull Docker images from Docker Hub (~200 MB). After that it starts in seconds.
 
 Open:
 - **Frontend:** http://localhost:3000
@@ -98,6 +110,51 @@ docker compose down
 ```
 
 The app talks to your host's Ollama via `host.docker.internal:11434` (set in `docker/config.yaml`).
+
+---
+
+## Offline model import (restricted networks)
+
+If `ollama pull` is blocked by your firewall or country, **do not use cloud models**. Import a local GGUF file instead — only the initial download needs internet (or use a USB / another PC).
+
+### Quick offline setup (Windows)
+
+```powershell
+# 1. Copy docker/.env (sets OFFLINE=1 so setup skips ollama pull)
+copy docker\.env.example docker\.env
+
+# 2. Download GGUF (~2 GB) via mirror:
+#    https://hf-mirror.com/bartowski/Llama-3.2-3B-Instruct-GGUF
+#    File: Llama-3.2-3B-Instruct-Q4_K_M.gguf
+
+# 3. Import (no internet needed after download):
+.\scripts\import-model-offline.ps1 -GgufPath "C:\Downloads\Llama-3.2-3B-Instruct-Q4_K_M.gguf"
+
+# 4. Verify — SIZE must show e.g. 2.0 GB, NOT "-":
+ollama list
+
+# 5. Start:
+.\scripts\start.ps1
+```
+
+### Option B — Copy from another machine
+
+Copy the Ollama models folder from a PC that already has the model:
+
+| OS | Path |
+|----|------|
+| Windows | `%USERPROFILE%\.ollama\models` |
+| Linux / macOS | `~/.ollama/models` |
+
+Then run `ollama list` and `.\scripts\start.ps1`.
+
+### Option C — Manual Modelfile
+
+See `models/Modelfile.example`. Place it next to your `.gguf` file, then:
+
+```bash
+ollama create llama3.2 -f Modelfile
+```
 
 ---
 
@@ -139,11 +196,11 @@ Open **http://localhost:3000**
 
 All models below are **free**. The first two run **locally** on your machine (need RAM/disk). The cloud models need internet but no GPU/disk.
 
-### Local models
+### Local models (required)
 
 | Model | Size | RAM needed | Best for | Command |
 |-------|------|------------|----------|---------|
-| **llama3.2** ⭐ | 2.0 GB | ~4 GB | General IELTS work, low-end hardware | `ollama pull llama3.2` |
+| **llama3.2** ⭐ | 2.0 GB | ~4 GB | Default — general IELTS work, low-end hardware | `ollama pull llama3.2` |
 | **llama3.2:3b** | 2.0 GB | ~4 GB | Same as above, smaller variant | `ollama pull llama3.2:3b` |
 | **qwen2.5:7b** | 4.7 GB | ~8 GB | **Writing feedback** (best open model for essay grading) | `ollama pull qwen2.5:7b` |
 | **mistral** | 4.1 GB | ~8 GB | Reading comprehension, Q&A | `ollama pull mistral` |
@@ -151,14 +208,7 @@ All models below are **free**. The first two run **locally** on your machine (ne
 | **phi3:medium** | 7.9 GB | ~12 GB | Strong reasoning, good for Speaking prompts | `ollama pull phi3:medium` |
 | **llama3.1:8b** | 4.7 GB | ~8 GB | General, good fallback | `ollama pull llama3.1:8b` |
 
-### Cloud models (no download, needs Ollama account)
-
-| Model | Hosted by | Notes |
-|-------|-----------|-------|
-| **nemotron-3-super:cloud** ⭐ | NVIDIA / Ollama | 49B params, 262k context, no download |
-| **deepseek-v3.1:cloud** | DeepSeek / Ollama | 671B params, very strong writing feedback |
-
-Cloud models are accessed through Ollama's free tier and require `ollama signin` once. They are listed automatically by `ollama list` once pulled.
+> **Note:** Only **local** models work (SIZE column in `ollama list` shows e.g. `2.0 GB`). Cloud models (`:cloud`, SIZE `-`) are not supported.
 
 ### How to switch models
 
@@ -295,7 +345,8 @@ docker build -t kyawzayarsoe/ielts-ai-frontend --build-arg NEXT_PUBLIC_API_URL=h
 
 ### Troubleshooting Docker
 
-- **Backend keeps restarting / health check fails:** Check `docker compose logs backend`. Usually it's the model name in `docker/config.yaml` not matching `ollama list`.
+- **Ollama 429 / session usage limit:** You are using a cloud model (`:cloud`). Switch to a local model in `docker/config.yaml` (e.g. `llama3.2`) and run `.\scripts\setup-model.ps1`.
+- **ollama pull fails / network blocked:** Use [offline model import](#offline-model-import-restricted-networks) — download GGUF manually or copy `~/.ollama/models` from another PC.
 - **Speaking transcription slow on first use:** Whisper downloads the `base` model (~150 MB) on first STT request. Use `stt.model: tiny` in config for faster/lighter transcription.
 - **`host.docker.internal` not resolving (Linux):** Use `172.17.0.1` instead, or run Ollama in Docker (see notes below).
 - **Want to use Ollama in Docker instead of local?** Uncomment the `ollama` and `ollama-pull` services in `docker-compose.yml`, then set `base_url: http://ollama:11434` in `docker/config.yaml`.
