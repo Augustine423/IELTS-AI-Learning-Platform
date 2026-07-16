@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
-# Slim Next.js image: alpine + node binary only (no npm/yarn), port 8080.
-# Browse on host/k8s port 80 via mapping (compose: 80:8080, Service port 80).
+# Slim Next.js image: alpine + node binary only (no npm/yarn).
+# Listens on container port 80 (Compose 80:80, k8s containerPort 80).
 #
 # BuildKit SBOM (attestation):  docker buildx build --sbom=true ...
 # Embedded SPDX:                /sbom/sbom.spdx.json
@@ -41,19 +41,22 @@ WORKDIR /app
 
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
-    PORT=8080 \
+    PORT=80 \
     HOSTNAME=0.0.0.0
 
 RUN apk add --no-cache \
         ca-certificates \
         libstdc++ \
         libgcc \
+        libcap \
     && addgroup -S -g 1001 nodejs \
     && adduser -S -u 1001 -G nodejs nextjs \
     && rm -rf /var/cache/apk/*
 
 # Node only (skip npm / yarn / corepack from the full node image)
 COPY --from=deps /usr/local/bin/node /usr/local/bin/node
+# Allow non-root user to bind privileged port 80
+RUN setcap 'cap_net_bind_service=+ep' /usr/local/bin/node
 
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
@@ -61,10 +64,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 USER nextjs
 
-EXPOSE 8080
+EXPOSE 80
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD ["node", "-e", "require('http').get('http://127.0.0.1:8080/',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+    CMD ["node", "-e", "require('http').get('http://127.0.0.1:80/',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
 
 CMD ["node", "server.js"]
 

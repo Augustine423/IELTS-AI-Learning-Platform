@@ -12,10 +12,12 @@ Browser → Frontend (:80) → Backend API (:8000)
    always on               profile: full            profile: full
 ```
 
-Separate **Ubuntu + Ollama** images (not the official `ollama/ollama` image) — one model per image so builds stay smaller.
+Separate **Ubuntu + Ollama** images (not the official `ollama/ollama` image) — one model per image, CPU-only runners by default, slim multi-stage builds.
 
-> **Quick start:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) → `.\scripts\start.ps1` → http://localhost  
+> **Quick start:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) → `.\scripts\start.ps1` → **http://localhost**  
 > Compose **only pulls** images from Docker Hub (built by GitHub Actions). Default = `llama3.2`. All models: `.\scripts\start.ps1 --full`
+
+Works the same on **local Docker**, a **cloud VM** (Compose), and **cloud Kubernetes**.
 
 ---
 
@@ -23,31 +25,32 @@ Separate **Ubuntu + Ollama** images (not the official `ollama/ollama` image) —
 
 | Need | Notes |
 |------|--------|
-| [Docker Desktop](https://www.docker.com/products/docker-desktop/) | Required |
-| RAM / disk | See **warning** below — Ollama images are large |
+| [Docker Desktop](https://www.docker.com/products/docker-desktop/) or Docker Engine | Required for Compose / local images |
+| RAM / disk | See **warning** below — Ollama model images are large |
 | Internet | To **pull** images from Docker Hub (first run) |
+| Kubernetes (optional) | `kubectl` + ingress controller for cluster deploy |
 
 No host Ollama install required.
 
 > **Warning — image size & server RAM**  
-> Backend (~slim FastAPI) and frontend (~alpine Node) are small. **Ollama model images are still multi-GB each** because each embeds a full local LLM — that is expected. CPU-only Ollama builds strip GPU runners (`INCLUDE_GPU=0`) to avoid shipping CUDA/ROCm.  
+> Frontend (~265 MB slim alpine + Node binary) and backend (slim FastAPI + Whisper `tiny`) are relatively small. **Ollama model images are still multi-GB each** because each embeds a full local LLM — that is expected. CPU-only builds strip GPU runners (`INCLUDE_GPU=0`) so CUDA/ROCm are not shipped.  
 >  
 > | Deploy | vCPU | RAM | Disk | Notes |
 > |--------|------|-----|------|--------|
 > | **Docker minimum** (`compose up`) | 4 | **16 GB** | 40 GB | llama3.2 only |
-> | **Docker comfortable** | 8 | **32 GB** | 80 GB | Recommended default VPS |
+> | **Docker comfortable** | 8 | **32 GB** | 80 GB | Recommended default VPS / VM |
 > | **Docker full** (`--full`) | 8–16 | **48–64 GB** | 120 GB | All 4 model containers |
 > | **K8s minimum** | 4–8 / node | **16–32 GB** free | — | `kubectl apply -k k8s/` |
 > | **K8s full** | 8+ | **~48–64 GB+** cluster | — | Also `kubectl apply -f k8s/ollama-full.yaml` |
 >  
-> Each running Ollama pod/container holds its model in RAM (~4–12 GB). Do **not** run `--full` / `ollama-full.yaml` on a 8–16 GB machine.  
+> Each running Ollama pod/container holds its model in RAM (~4–12 GB). Do **not** run `--full` / `ollama-full.yaml` on an 8–16 GB machine.  
 > Full sizing notes: [k8s/SIZING.md](k8s/SIZING.md).
 
 ---
 
 ## Quick start (Docker — pull from Hub)
 
-Images are built & pushed by GitHub Actions. Local Compose does **not** build.
+Images are built & pushed by GitHub Actions. Local Compose does **not** build by default.
 
 ### Default (small — `llama3.2` only)
 
@@ -56,7 +59,7 @@ Images are built & pushed by GitHub Actions. Local Compose does **not** build.
 .\scripts\start.ps1
 ```
 
-**Linux / macOS**
+**Linux / macOS / cloud VM**
 ```bash
 chmod +x scripts/*.sh
 ./scripts/start.sh
@@ -83,7 +86,7 @@ docker compose --profile full up
 
 | Service | URL |
 |---------|-----|
-| App | http://localhost |
+| **App (UI)** | **http://localhost** (image listens on `:80`) |
 | API | http://localhost:8000 |
 | API docs | http://localhost:8000/docs |
 | Ollama `llama3.2` | http://localhost:11434 |
@@ -97,16 +100,22 @@ docker compose --profile full down   # if you used --full
 docker compose down
 ```
 
+### Cloud VM tip
+
+Open host ports **80** (UI) and **8000** (API) in the firewall/security group. Browse `http://<vm-public-ip>` — no `:3000` needed.
+
 ---
 
 ## Models (free, local, offline after bake)
 
 | Image | Model | Skill (auto) | ~Size |
 |-------|-------|--------------|-------|
-| `ielts-ai-ollama-llama32` | `llama3.2` | Listening (+ fallback) | ~2 GB |
-| `ielts-ai-ollama-llama31` | `llama3.1:8b` | Speaking | ~5 GB |
-| `ielts-ai-ollama-qwen25` | `qwen2.5:7b` | Writing | ~5 GB |
-| `ielts-ai-ollama-gemma2` | `gemma2:9b` | Reading | ~6 GB |
+| `ielts-ai-ollama-llama32` | `llama3.2` | Listening (+ fallback) | ~2–4 GB* |
+| `ielts-ai-ollama-llama31` | `llama3.1:8b` | Speaking | ~5–6 GB* |
+| `ielts-ai-ollama-qwen25` | `qwen2.5:7b` | Writing | ~5–6 GB* |
+| `ielts-ai-ollama-gemma2` | `gemma2:9b` | Reading | ~6–7 GB* |
+
+\*Mostly model weights. Runtime is CPU-only by default (GPU runners stripped).
 
 All are **free** open-weight models via Ollama. Cloud tags (`*:cloud`) are **not** supported.
 
@@ -122,9 +131,47 @@ Web enrich (optional checkbox) adds DuckDuckGo study tips to the prompt. Needs n
 
 ---
 
+## Slim images & SBOM
+
+| Image | Slimming method |
+|-------|-----------------|
+| **Frontend** | Alpine + Node binary only (no npm/yarn); ~265 MB locally; listens on **port 80** |
+| **Backend** | Python venv multi-stage; purge caches / test dirs; Whisper `tiny` pre-baked |
+| **Ollama** | Bake stage discarded; final = binary + weights; `INCLUDE_GPU=0` strips CUDA/ROCm/MLX |
+
+**Ports:** frontend image / container listens on **80**. Compose `80:80`. Kubernetes Service port **80** → `containerPort: 80`.
+
+**SBOM (every image):**
+- Embedded SPDX: `/sbom/sbom.spdx.json`
+- CI also attaches BuildKit SBOM attestations (`sbom: true`)
+
+```bash
+# Inspect embedded SBOM
+docker run --rm --entrypoint cat kyawzayarsoe/ielts-ai-frontend:latest /sbom/sbom.spdx.json | head
+```
+
+Local rebuild examples (CI / custom; Compose still pulls Hub by default):
+
+```bash
+# Frontend
+docker buildx build --sbom=true -t ielts-ai-frontend:local -f frontend/Dockerfile frontend
+
+# Backend
+docker buildx build --sbom=true -t ielts-ai-backend:local -f backend/Dockerfile backend
+
+# One Ollama model (CPU-only)
+docker buildx build --sbom=true -f docker/ollama/Dockerfile --target ollama-model \
+  --build-arg BAKE_MODEL=llama3.2 --build-arg INCLUDE_GPU=0 \
+  -t ielts-ai-ollama-llama32:local .
+```
+
+Set `INCLUDE_GPU=1` only if you need CUDA/ROCm runners (much larger images).
+
+---
+
 ## Offline / custom image builds (optional)
 
-Normal use is **pull from Hub**. Dockerfiles remain for CI and local rebuilds only.
+Normal use is **pull from Hub**. Dockerfiles remain for CI and local rebuilds.
 
 If you must bake offline (GGUF), use `scripts/build-ollama.*` / `import-model-offline.*` — that is separate from the default Compose pull flow.
 
@@ -134,7 +181,7 @@ If you must bake offline (GGUF), use `scripts/build-ollama.*` / `import-model-of
 
 | Layer | Default | Notes |
 |-------|---------|--------|
-| LLM | Custom Ubuntu images + Ollama | One model per image |
+| LLM | Custom Ubuntu images + Ollama | One model per image, CPU-only by default |
 | STT | faster-whisper (`tiny` in Docker) | Free, offline |
 | TTS | Edge TTS | Free UK / US / AU |
 | API | FastAPI + LangChain | Routes to the right Ollama URL |
@@ -211,7 +258,10 @@ cp .env.local.example .env.local
 npm run dev
 ```
 
-Open http://localhost for Docker / container deploys, or http://localhost:3000 when running `npm run dev`
+| Mode | URL |
+|------|-----|
+| Docker / Compose / VM | **http://localhost** (port 80) |
+| `npm run dev` | http://localhost:3000 |
 
 ---
 
@@ -219,15 +269,17 @@ Open http://localhost for Docker / container deploys, or http://localhost:3000 w
 
 ```
 ├── backend/                 # FastAPI — routes chat to the correct Ollama URL
+│   └── Dockerfile           # Slim multi-stage + embedded SBOM
 ├── frontend/                # Next.js UI + proxy
+│   └── Dockerfile           # Alpine + Node only + embedded SBOM
 ├── docker/
 │   ├── config.yaml          # Mounted into backend
-│   └── ollama/              # Multi-stage Dockerfile (base + one model)
+│   └── ollama/              # Multi-stage Dockerfile (base → bake → runtime + SBOM)
 ├── models/                  # Optional .gguf for offline bake
 ├── scripts/                 # start / build-ollama / import-model-offline
-├── k8s/                     # Kubernetes (llama32 by default)
-├── .github/workflows/       # Build & push all images to Docker Hub
-├── docker-compose.yml       # Pull-only from Docker Hub (+ profile full)
+├── k8s/                     # Kubernetes (llama32 by default; frontend :80)
+├── .github/workflows/       # Build & push all images (+ SBOM attestations)
+├── docker-compose.yml       # Pull-only from Docker Hub (frontend 80:80)
 └── .env.example
 ```
 
@@ -243,27 +295,12 @@ Open http://localhost for Docker / container deploys, or http://localhost:3000 w
 | `kyawzayarsoe/ielts-ai-ollama-llama31` | `llama3.1:8b` |
 | `kyawzayarsoe/ielts-ai-ollama-qwen25` | `qwen2.5:7b` |
 | `kyawzayarsoe/ielts-ai-ollama-gemma2` | `gemma2:9b` |
-| `kyawzayarsoe/ielts-ai-backend` | FastAPI + Whisper |
-| `kyawzayarsoe/ielts-ai-frontend` | Next.js |
+| `kyawzayarsoe/ielts-ai-backend` | FastAPI + Whisper (slim) |
+| `kyawzayarsoe/ielts-ai-frontend` | Next.js (slim; container `:80`) |
 
 ```bash
 docker compose pull && docker compose up
 docker compose --profile full pull && docker compose --profile full up
-```
-
-CI builds from `docker/ollama/Dockerfile` and pushes these tags. Compose only pulls them.
-
-**Image size notes (slim builds):**
-- Frontend: alpine + Node binary only (no npm/yarn); container listens on **8080**, host/k8s browse on **:80**
-- Backend: venv multi-stage + cleaned caches; Whisper `tiny` pre-baked
-- Ollama: CPU-only runners by default (`INCLUDE_GPU=0`); bake stage discarded; weights + binary only in final image
-- Model images are still multi-GB because of LLM weights — that part cannot be shrunk without a smaller model
-
-**SBOM:** each image embeds SPDX at `/sbom/sbom.spdx.json`. CI also attaches BuildKit SBOM attestations (`--sbom=true`).
-
-```bash
-# Inspect embedded SBOM inside a running/local image
-docker run --rm --entrypoint cat kyawzayarsoe/ielts-ai-frontend:latest /sbom/sbom.spdx.json | head
 ```
 
 **Auto routing:** listening→llama3.2, speaking→llama3.1:8b, reading→gemma2:9b, writing→qwen2.5:7b.  
@@ -273,11 +310,13 @@ docker run --rm --entrypoint cat kyawzayarsoe/ielts-ai-frontend:latest /sbom/sbo
 
 | Issue | Fix |
 |-------|-----|
-| First start slow | Large image download from Hub (once) |
+| First start slow | Large Ollama image download from Hub (once) |
+| Can't open UI on `:3000` | Use **http://localhost** (port **80**), not 3000 |
 | Health degraded | `docker compose pull ollama-llama32 && docker compose up -d` |
 | Auto model not used | Run with `--full` so speaking/reading/writing images are pulled |
 | Pull fails / 404 | Confirm GitHub Actions pushed images; check Docker Hub tags |
 | Speaking STT slow | Whisper `tiny` is pre-baked in the backend image |
+| Need GPU in Ollama image | Rebuild with `--build-arg INCLUDE_GPU=1` (much larger) |
 
 ---
 
@@ -285,7 +324,7 @@ docker run --rm --entrypoint cat kyawzayarsoe/ielts-ai-frontend:latest /sbom/sbo
 
 Workflow: [`.github/workflows/docker-build-push.yml`](.github/workflows/docker-build-push.yml)
 
-Builds and pushes images on **push to `main`/`master`**, **version tags `v*`**, or **manual run**.
+Builds and pushes images on **push to `main`/`master`**, **version tags `v*`**, or **manual run**. Each build enables **SBOM** + minimal **provenance** attestations.
 
 | Job | Images |
 |-----|--------|
@@ -320,6 +359,8 @@ docker pull kyawzayarsoe/ielts-ai-ollama-gemma2:latest
 
 ## Kubernetes
 
+Frontend Service and pods both use port **80** (same as the Docker image).
+
 ```bash
 # Edit k8s/ingress.yaml and k8s/secret.yaml first
 
@@ -332,7 +373,7 @@ kubectl apply -f k8s/ollama-full.yaml
 kubectl get pods -n ielts-ai
 ```
 
-Hub images only (`imagePullPolicy: Always`).  
+Hub images only (`imagePullPolicy: Always`).
 
 > **Warning:** Full auto-skill deploy needs ~48–64 GB+ cluster RAM. See the [Requirements warning](#requirements) and [k8s/SIZING.md](k8s/SIZING.md).
 
