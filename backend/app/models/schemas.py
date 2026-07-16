@@ -97,3 +97,20 @@ class HealthResponse(BaseModel):
     ollama_available: bool
     models_installed: list[str] = Field(default_factory=list)
     models_by_skill: dict[str, str] = Field(default_factory=dict)
+    livekit_configured: bool = False
+
+
+class LiveKitTokenRequest(BaseModel):
+    skill: Skill
+    scenario_id: Optional[str] = None
+    scenario_prompt: Optional[str] = None
+    voice_preferences: VoicePreferences = Field(default_factory=VoicePreferences)
+    participant_name: str = "student"
+
+
+class LiveKitTokenResponse(BaseModel):
+    token: str
+    url: str
+    room_name: str
+    skill: Skill
+    livekit_configured: bool = True

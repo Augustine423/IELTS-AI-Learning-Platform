@@ -13,10 +13,14 @@ class Settings(BaseSettings):
     ollama_base_url: str = ""
     openai_api_key: str = ""
     openai_base_url: str = "https://api.groq.com/openai/v1"
+    groq_api_key: str = ""
     deepgram_api_key: str = ""
     assemblyai_api_key: str = ""
     elevenlabs_api_key: str = ""
-    frontend_url: str = "http://localhost:3000"
+    frontend_url: str = "http://localhost:80"
+    livekit_url: str = ""
+    livekit_api_key: str = ""
+    livekit_api_secret: str = ""
 
     class Config:
         env_file = ".env"

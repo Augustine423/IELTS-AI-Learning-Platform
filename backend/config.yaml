@@ -33,6 +33,6 @@ tts:
   elevenlabs_voice_id: ""
 
 ielts:
-  default_band_target: 7.0
+  default_band_target: 8.0
   speaking_time_limit_seconds: 120
   writing_word_limit: 250

@@ -10,6 +10,7 @@ import {
 } from "@/lib/api";
 import { SCENARIOS, SKILL_META, Scenario } from "@/lib/scenarios";
 import { VoiceConversation } from "./VoiceConversation";
+import { LiveKitVoiceRoom } from "./LiveKitVoiceRoom";
 import { AudioPlayer } from "./AudioPlayer";
 import {
   ModelSelector,
@@ -30,7 +31,7 @@ interface ChatInterfaceProps {
   voicePreferences: VoicePreferences;
 }
 
-type PracticeMode = "chat" | "voice";
+type PracticeMode = "chat" | "livekit" | "voice";
 
 export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -42,9 +43,7 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
     defaultModelPreferences("auto")
   );
   const [activeModel, setActiveModel] = useState<string | null>(null);
-  const [mode, setMode] = useState<PracticeMode>(
-    skill === "speaking" ? "voice" : "chat"
-  );
+  const [mode, setMode] = useState<PracticeMode>("livekit");
   const [activeScenario, setActiveScenario] = useState<Scenario | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<(() => void) | null>(null);
@@ -114,6 +113,10 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
   }
 
   function startScenario(scenario: Scenario) {
+    setActiveScenario(scenario);
+    if (mode === "livekit") {
+      return;
+    }
     setMode("chat");
     sendMessage(scenario.prompt, scenario);
   }
@@ -149,16 +152,28 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
           </button>
           <button
             type="button"
-            onClick={() => setMode("voice")}
+            onClick={() => setMode("livekit")}
             className={clsx(
               "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all",
-              mode === "voice"
+              mode === "livekit"
                 ? "bg-skill-speaking text-white shadow-sm"
                 : "text-ink-muted hover:text-ink"
             )}
           >
             <Radio className="w-3.5 h-3.5" />
-            Live dialogue
+            LiveKit voice
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("voice")}
+            className={clsx(
+              "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all",
+              mode === "voice"
+                ? "bg-ink text-white shadow-sm"
+                : "text-ink-muted hover:text-ink"
+            )}
+          >
+            Classic mic
           </button>
         </div>
 
@@ -201,8 +216,8 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
               <h2 className="brand-mark text-3xl text-ink mt-1">{meta.tagline}</h2>
               <p className="text-sm text-ink-muted mt-2 leading-relaxed">
                 Pick a situation to start a natural dialogue, or open{" "}
-                <strong className="text-ink">Live dialogue</strong> for
-                hands-free speaking with the tutor.
+                <strong className="text-ink">LiveKit voice</strong> for
+                realtime tutoring on all four skills (no big Ollama image required).
               </p>
             </div>
 
@@ -291,7 +306,21 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
 
       {/* Composer */}
       <div className="sticky bottom-0 border-t border-ink/8 bg-foam/90 backdrop-blur-md p-4">
-        {mode === "voice" ? (
+        {mode === "livekit" ? (
+          <div className="glass-panel rounded-2xl p-4">
+            <LiveKitVoiceRoom
+              skill={skill}
+              voicePreferences={voicePreferences}
+              scenario={activeScenario}
+              disabled={loading}
+            />
+            <p className="text-xs text-ink-muted mt-3 leading-relaxed">
+              Uses LiveKit Cloud + your Groq/OpenAI keys. Works for Listening,
+              Speaking, Reading, and Writing without pulling multi-GB Ollama
+              models. Pick a scenario above first (optional), then Start LiveKit.
+            </p>
+          </div>
+        ) : mode === "voice" ? (
           <div className="glass-panel rounded-2xl p-4 flex flex-col sm:flex-row items-center gap-4">
             <VoiceConversation
               skill={skill}
@@ -305,10 +334,10 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
               onScenarioStart={(s) => setActiveScenario(s)}
             />
             <div className="flex-1 text-center sm:text-left">
-              <p className="text-sm font-semibold text-ink">Live dialogue mode</p>
+              <p className="text-sm font-semibold text-ink">Classic mic mode</p>
               <p className="text-xs text-ink-muted mt-1 leading-relaxed">
-                The tutor speaks aloud, then listens. Pause briefly after you
-                finish talking — silence ends your turn.
+                Local STT → chat API → Edge TTS (uses Ollama/backend). Prefer
+                LiveKit voice when you want a lighter server.
               </p>
               <label className="mt-3 inline-flex items-center gap-2 text-xs text-ink-muted cursor-pointer select-none">
                 <input

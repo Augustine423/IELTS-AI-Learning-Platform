@@ -66,9 +66,50 @@ export async function fetchHealth(): Promise<{
   llm_model: string;
   models_installed: string[];
   models_by_skill: Record<string, string>;
+  livekit_configured?: boolean;
 }> {
   const res = await fetch(`${API_URL}/health`);
   if (!res.ok) throw new Error("Backend unavailable");
+  return res.json();
+}
+
+export async function fetchLiveKitStatus(): Promise<{
+  configured: boolean;
+  url: string;
+  agent_name: string;
+}> {
+  const res = await fetch(`${API_URL}/api/livekit/status`);
+  if (!res.ok) throw new Error("Failed to fetch LiveKit status");
+  return res.json();
+}
+
+export async function createLiveKitToken(input: {
+  skill: Skill;
+  voicePreferences: VoicePreferences;
+  scenarioId?: string | null;
+  scenarioPrompt?: string | null;
+  participantName?: string;
+}): Promise<{
+  token: string;
+  url: string;
+  room_name: string;
+  skill: Skill;
+}> {
+  const res = await fetch(`${API_URL}/api/livekit/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      skill: input.skill,
+      scenario_id: input.scenarioId || null,
+      scenario_prompt: input.scenarioPrompt || null,
+      voice_preferences: input.voicePreferences,
+      participant_name: input.participantName || "student",
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(detail || "Failed to create LiveKit token");
+  }
   return res.json();
 }
 

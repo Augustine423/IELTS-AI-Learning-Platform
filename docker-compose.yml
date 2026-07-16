@@ -62,12 +62,19 @@ services:
     image: kyawzayarsoe/ielts-ai-backend:latest
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
       - OLLAMA_BASE_URL=http://ollama-llama32:11434
       - HOME=/app
       - HF_HOME=/app/.cache/huggingface
       - WHISPER_CACHE_DIR=/app/.cache/whisper
       - TMPDIR=/app/tmp
+      - LIVEKIT_URL=${LIVEKIT_URL:-}
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
     volumes:
       - ./docker/config.yaml:/app/config.yaml:ro
     depends_on:
@@ -105,3 +112,22 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+
+  # --- LiveKit Cloud agent (all 4 skills; no big Ollama required) ---
+  # Requires .env: LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET, GROQ_API_KEY or OPENAI_API_KEY
+  #   docker compose --profile livekit up livekit-agent
+  livekit-agent:
+    profiles: ["livekit"]
+    build:
+      context: ./agents/ielts_voice
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      - LIVEKIT_URL=${LIVEKIT_URL}
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.groq.com/openai/v1}
+    restart: unless-stopped

@@ -52,6 +52,11 @@ coverage.xml
 *.pem
 *.key
 
+# LiveKit registration screenshots (contain secrets)
+Livekit.jpg
+LiveKit.jpg
+livekit.jpg
+
 # IDE & editors
 .idea/
 .vscode/

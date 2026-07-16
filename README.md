@@ -15,9 +15,40 @@ Browser → Frontend (:80) → Backend API (:8000)
 Separate **Ubuntu + Ollama** images (not the official `ollama/ollama` image) — one model per image, CPU-only runners by default, slim multi-stage builds.
 
 > **Quick start:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) → `.\scripts\start.ps1` → **http://localhost**  
-> Compose **only pulls** images from Docker Hub (built by GitHub Actions). Default = `llama3.2`. All models: `.\scripts\start.ps1 --full`
+> **LiveKit voice (all 4 skills, no big Ollama):** set LiveKit + Groq keys in `.env` → `.\scripts\start-livekit-agent.ps1` → open a skill → **LiveKit voice**  
+> Compose **only pulls** Hub images for the classic stack. Default Ollama = `llama3.2`. All Ollama models: `.\scripts\start.ps1 --full`
 
 Works the same on **local Docker**, a **cloud VM** (Compose), and **cloud Kubernetes**.
+
+---
+
+## LiveKit voice (all 4 skills)
+
+Realtime voice tutoring via **LiveKit Cloud** for Listening, Speaking, Reading, and Writing — without pulling multi-GB Ollama images.
+
+| Need | Notes |
+|------|--------|
+| LiveKit Cloud | `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` in `.env` |
+| LLM/STT | `GROQ_API_KEY` (free tier, recommended) and/or `OPENAI_API_KEY` |
+| TTS | Free **Edge TTS** accents (UK/US/AU) by default |
+
+**1. Fill `.env`** (see `.env.example`; never commit secrets)
+
+**2. Start backend + frontend** (classic Compose or local `npm` / `uvicorn`)
+
+**3. Start the agent worker**
+```powershell
+.\scripts\start-livekit-agent.ps1
+```
+```bash
+chmod +x scripts/start-livekit-agent.sh
+./scripts/start-livekit-agent.sh
+```
+Or: `docker compose --profile livekit up --build livekit-agent`
+
+**4. Open** http://localhost → any skill → **LiveKit voice** → Start LiveKit
+
+Agent name: `ielts-tutor`. Token API: `POST /api/livekit/token`.
 
 ---
 
@@ -383,8 +414,9 @@ Hub images only (`imagePullPolicy: Always`).
 
 | Script | Purpose |
 |--------|---------|
-| `scripts/start.*` | `docker compose pull` + `up` (`--full` = all models) |
-| `scripts/build-ollama.*` | Optional local rebuild (CI/dev only; not used by default start) |
+| `scripts/start.*` | `docker compose pull` + `up` (`--full` = all Ollama models) |
+| `scripts/start-livekit-agent.*` | LiveKit Cloud voice agent for all 4 skills |
+| `scripts/build-ollama.*` | Optional local Ollama rebuild (CI/dev only) |
 | `scripts/import-model-offline.*` | Optional offline GGUF bake for custom images |
 
 ---
