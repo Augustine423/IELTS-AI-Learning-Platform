@@ -1,4 +1,4 @@
-# Start LiveKit-only IELTS stack.
+# Pull Docker Hub images and start the LiveKit-only stack (no local builds).
 param(
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$ComposeArgs
@@ -15,5 +15,8 @@ if (-not (Test-Path $EnvFile) -and (Test-Path $EnvExample)) {
 }
 
 Set-Location $Root
+Write-Host "==> Pulling kyawzayarsoe/ielts-ai-* images from Docker Hub…"
+docker compose pull
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Write-Host "==> Starting frontend + backend + livekit-agent…"
-docker compose up --build @ComposeArgs
+docker compose up @ComposeArgs

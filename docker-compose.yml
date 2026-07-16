@@ -1,10 +1,19 @@
-# IELTS AI — LiveKit-only stack (no Ollama)
+# IELTS AI — LiveKit-only stack (pull from Docker Hub, no local builds)
 #
-#   docker compose up --build
+#   docker compose pull && docker compose up
+#   # or: .\scripts\start.ps1
 #
 # Requires .env:
 #   LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET
 #   GROQ_API_KEY (recommended) and/or OPENAI_API_KEY
+#
+# Images (Docker Hub):
+#   kyawzayarsoe/ielts-ai-backend:latest
+#   kyawzayarsoe/ielts-ai-frontend:latest
+#   kyawzayarsoe/ielts-ai-livekit-agent:latest
+
+x-pull: &pull-always
+  pull_policy: always
 
 x-livekit-env: &livekit-env
   LIVEKIT_URL: ${LIVEKIT_URL:-}
@@ -16,9 +25,7 @@ x-livekit-env: &livekit-env
 
 services:
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    <<: *pull-always
     image: kyawzayarsoe/ielts-ai-backend:latest
     ports:
       - "8000:8000"
@@ -49,9 +56,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    <<: *pull-always
     image: kyawzayarsoe/ielts-ai-frontend:latest
     ports:
       - "80:80"
@@ -78,9 +83,7 @@ services:
     restart: unless-stopped
 
   livekit-agent:
-    build:
-      context: ./agents/ielts_voice
-      dockerfile: Dockerfile
+    <<: *pull-always
     image: kyawzayarsoe/ielts-ai-livekit-agent:latest
     env_file:
       - path: .env

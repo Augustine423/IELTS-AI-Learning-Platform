@@ -33,7 +33,7 @@ Ollama / multi-GB local model images are **not** used on this branch. That stack
 cp .env.example .env
 ```
 
-2. Start:
+2. Start (pulls Hub images — no local build):
 
 ```powershell
 .\scripts\start.ps1
@@ -44,7 +44,13 @@ chmod +x scripts/*.sh
 ./scripts/start.sh
 ```
 
-Same as `docker compose up --build`.
+Same as `docker compose pull && docker compose up`.
+
+| Image on Docker Hub | Role |
+|---------------------|------|
+| `kyawzayarsoe/ielts-ai-backend` | FastAPI + LiveKit tokens |
+| `kyawzayarsoe/ielts-ai-frontend` | Next.js UI (port 80) |
+| `kyawzayarsoe/ielts-ai-livekit-agent` | LiveKit Cloud voice agent |
 
 | Service | URL |
 |---------|-----|
