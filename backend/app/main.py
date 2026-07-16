@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_config
 from app.models.schemas import HealthResponse
 from app.services.llm.factory import get_llm
+from app.services.llm.models import get_fallback_model, get_skill_models
 from app.services.voice.stt.factory import get_stt
 from app.routers import chat, voice, skills
 
@@ -49,11 +50,19 @@ async def health():
     config = get_config()
     llm = get_llm()
     ollama_ok = await llm.is_available()
+    installed: list[str] = []
+    if hasattr(llm, "list_installed_models"):
+        try:
+            installed = await llm.list_installed_models()
+        except Exception:
+            installed = []
     return HealthResponse(
         status="ok" if ollama_ok else "degraded",
         llm_provider=config.get("llm", {}).get("provider", "ollama"),
-        llm_model=config.get("llm", {}).get("model", "llama3.2"),
+        llm_model=get_fallback_model(),
         ollama_available=ollama_ok,
+        models_installed=installed,
+        models_by_skill=get_skill_models(),
     )
 
 

@@ -1,24 +1,98 @@
+# Separate Ollama images (one model each) + backend/frontend.
+# Shared Dockerfile target `ollama-base` is cached across model builds.
+#
+# Quick (llama3.2 only):
+#   docker compose up --build
+#
+# All skill models:
+#   docker compose --profile full up --build
+
+x-ollama-health: &ollama-health
+  test: ["CMD", "curl", "-sf", "http://127.0.0.1:11434/api/tags"]
+  interval: 15s
+  timeout: 5s
+  retries: 12
+  start_period: 45s
+
+x-ollama-build: &ollama-build
+  context: .
+  dockerfile: docker/ollama/Dockerfile
+  target: ollama-model
+  args:
+    OFFLINE_BUILD: ${OFFLINE_BUILD:-0}
+
 services:
+  # --- Listening default / fallback (always on) ---
+  ollama-llama32:
+    build:
+      <<: *ollama-build
+      args:
+        BAKE_MODEL: llama3.2
+        OFFLINE_BUILD: ${OFFLINE_BUILD:-0}
+    image: kyawzayarsoe/ielts-ai-ollama-llama32:latest
+    ports:
+      - "11434:11434"
+    healthcheck: *ollama-health
+    restart: unless-stopped
+
+  # --- Speaking (profile: full) ---
+  ollama-llama31:
+    profiles: ["full"]
+    build:
+      <<: *ollama-build
+      args:
+        BAKE_MODEL: llama3.1:8b
+        OFFLINE_BUILD: ${OFFLINE_BUILD:-0}
+    image: kyawzayarsoe/ielts-ai-ollama-llama31:latest
+    ports:
+      - "11435:11434"
+    healthcheck: *ollama-health
+    restart: unless-stopped
+
+  # --- Writing (profile: full) ---
+  ollama-qwen25:
+    profiles: ["full"]
+    build:
+      <<: *ollama-build
+      args:
+        BAKE_MODEL: qwen2.5:7b
+        OFFLINE_BUILD: ${OFFLINE_BUILD:-0}
+    image: kyawzayarsoe/ielts-ai-ollama-qwen25:latest
+    ports:
+      - "11436:11434"
+    healthcheck: *ollama-health
+    restart: unless-stopped
+
+  # --- Reading (profile: full) ---
+  ollama-gemma2:
+    profiles: ["full"]
+    build:
+      <<: *ollama-build
+      args:
+        BAKE_MODEL: gemma2:9b
+        OFFLINE_BUILD: ${OFFLINE_BUILD:-0}
+    image: kyawzayarsoe/ielts-ai-ollama-gemma2:latest
+    ports:
+      - "11437:11434"
+    healthcheck: *ollama-health
+    restart: unless-stopped
+
   backend:
-    build: ./backend
     image: kyawzayarsoe/ielts-ai-backend:latest
-    pull_policy: build
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    pull_policy: always
     ports:
       - "8000:8000"
     environment:
-      - OLLAMA_BASE_URL=http://host.docker.internal:11434
-      - HOME=/app
-      - HF_HOME=/app/.cache/huggingface
-      - WHISPER_CACHE_DIR=/app/.cache/whisper
-      - TMPDIR=/app/tmp
+      - OLLAMA_BASE_URL=http://ollama-llama32:11434
       - HOME=/app
       - HF_HOME=/app/.cache/huggingface
       - WHISPER_CACHE_DIR=/app/.cache/whisper
       - TMPDIR=/app/tmp
     volumes:
       - ./docker/config.yaml:/app/config.yaml:ro
+    depends_on:
+      ollama-llama32:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
       interval: 30s
@@ -27,9 +101,8 @@ services:
       start_period: 180s
 
   frontend:
-    build: ./frontend
     image: kyawzayarsoe/ielts-ai-frontend:latest
-    pull_policy: build
+    pull_policy: always
     ports:
       - "3000:3000"
     environment:

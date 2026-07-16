@@ -44,14 +44,34 @@ class OpenAICompatibleLLM(BaseLLM):
     async def is_available(self) -> bool:
         return bool(self.api_key)
 
-    async def generate(self, messages: list[dict], system_prompt: str = "") -> str:
-        client = self._get_client()
+    async def generate(
+        self,
+        messages: list[dict],
+        system_prompt: str = "",
+        model: str | None = None,
+    ) -> str:
+        client = ChatOpenAI(
+            model=model or self.model,
+            api_key=self.api_key,
+            base_url=self.base_url,
+            temperature=self.temperature,
+        )
         lc_messages = _to_langchain_messages(messages, system_prompt)
         response = await client.ainvoke(lc_messages)
         return response.content
 
-    async def stream(self, messages: list[dict], system_prompt: str = "") -> AsyncIterator[str]:
-        client = self._get_client()
+    async def stream(
+        self,
+        messages: list[dict],
+        system_prompt: str = "",
+        model: str | None = None,
+    ) -> AsyncIterator[str]:
+        client = ChatOpenAI(
+            model=model or self.model,
+            api_key=self.api_key,
+            base_url=self.base_url,
+            temperature=self.temperature,
+        )
         lc_messages = _to_langchain_messages(messages, system_prompt)
         async for chunk in client.astream(lc_messages):
             if chunk.content:

@@ -1,5 +1,14 @@
-FROM ./llama-3.2-3b-instruct-q4_k_m.gguf
+# Documentation for offline GGUF imports into the custom Ollama image.
+#
+# The bake script auto-generates a Modelfile from any .gguf in this folder.
+#
+# Offline bake:
+#   1. Place your .gguf in models/
+#   2. Set OFFLINE_BUILD=1 in .env
+#   3. ./scripts/build-ollama.sh --offline
+#   or: ./scripts/import-model-offline.sh /path/to/model.gguf
+#
+# Manual host Ollama (debug only):
+#   ollama create llama3.2 -f Modelfile
 
-# Rename the GGUF filename above to match your downloaded file.
-# Then run:  ollama create llama3.2 -f Modelfile
-# Or use:    .\scripts\import-model-offline.ps1 -GgufPath "C:\path\to\model.gguf"
+FROM ./Llama-3.2-3B-Instruct-Q4_K_M.gguf

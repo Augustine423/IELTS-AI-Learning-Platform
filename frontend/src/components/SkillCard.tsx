@@ -1,7 +1,8 @@
 "use client";
 
 import { SkillInfo } from "@/lib/api";
-import { Headphones, Mic, BookOpen, PenLine } from "lucide-react";
+import { SKILL_META } from "@/lib/scenarios";
+import { Headphones, Mic, BookOpen, PenLine, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { clsx } from "clsx";
 
@@ -12,11 +13,11 @@ const ICONS = {
   pen: PenLine,
 };
 
-const COLORS: Record<string, string> = {
-  listening: "from-blue-500 to-blue-700",
-  speaking: "from-emerald-500 to-emerald-700",
-  reading: "from-violet-500 to-violet-700",
-  writing: "from-amber-500 to-amber-700",
+const ACCENT: Record<string, string> = {
+  listening: "bg-skill-listening",
+  speaking: "bg-skill-speaking",
+  reading: "bg-skill-reading",
+  writing: "bg-skill-writing",
 };
 
 interface SkillCardProps {
@@ -25,24 +26,35 @@ interface SkillCardProps {
 
 export function SkillCard({ skill }: SkillCardProps) {
   const Icon = ICONS[skill.icon as keyof typeof ICONS] || BookOpen;
-  const gradient = COLORS[skill.id] || "from-slate-500 to-slate-700";
+  const meta = SKILL_META[skill.id];
+  const accent = ACCENT[skill.id] || "bg-sea";
 
   return (
-    <Link href={`/skills/${skill.id}`}>
-      <div className="group bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-lg hover:border-ielts-blue transition-all duration-200 cursor-pointer h-full">
+    <Link href={`/skills/${skill.id}`} className="block h-full group">
+      <article className="relative h-full overflow-hidden rounded-3xl glass-panel p-6 transition-all duration-300 hover:shadow-lift hover:-translate-y-0.5">
         <div
           className={clsx(
-            "w-12 h-12 rounded-xl bg-gradient-to-br flex items-center justify-center mb-4",
-            gradient
+            "absolute -right-8 -top-8 h-28 w-28 rounded-full opacity-20 blur-2xl transition-opacity group-hover:opacity-40",
+            accent
           )}
-        >
-          <Icon className="w-6 h-6 text-white" />
+        />
+        <div className="flex items-start justify-between gap-3">
+          <div
+            className={clsx(
+              "flex h-12 w-12 items-center justify-center rounded-2xl text-white shadow-md",
+              accent
+            )}
+          >
+            <Icon className="w-5 h-5" />
+          </div>
+          <ArrowUpRight className="w-5 h-5 text-ink-muted opacity-0 -translate-y-1 transition-all group-hover:opacity-100 group-hover:translate-y-0" />
         </div>
-        <h3 className="text-lg font-bold text-slate-800 group-hover:text-ielts-blue transition-colors">
-          {skill.name}
-        </h3>
-        <p className="text-sm text-slate-500 mt-2 leading-relaxed">{skill.description}</p>
-      </div>
+        <h3 className="brand-mark mt-5 text-2xl text-ink">{skill.name}</h3>
+        <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-sea">
+          {meta?.tagline}
+        </p>
+        <p className="mt-3 text-sm text-ink-muted leading-relaxed">{skill.description}</p>
+      </article>
     </Link>
   );
 }

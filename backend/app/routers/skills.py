@@ -12,25 +12,25 @@ SKILLS: list[SkillInfo] = [
     SkillInfo(
         id=Skill.LISTENING,
         name="Listening",
-        description="Practice IELTS listening with AI-read passages and comprehension questions.",
+        description="Section-style scripts, TTS playback, and comprehension drills.",
         icon="headphones",
     ),
     SkillInfo(
         id=Skill.SPEAKING,
         name="Speaking",
-        description="Voice conversation practice with real-time examiner-style feedback.",
+        description="Situational dialogues and Parts 1–3 with live voice coaching.",
         icon="mic",
     ),
     SkillInfo(
         id=Skill.READING,
         name="Reading",
-        description="Reading passages with authentic IELTS question types and explanations.",
+        description="Passages with T/F/NG, headings, and vocabulary in context.",
         icon="book-open",
     ),
     SkillInfo(
         id=Skill.WRITING,
         name="Writing",
-        description="Essay and report feedback with official IELTS band criteria.",
+        description="Task 1 & 2 feedback using official IELTS band criteria.",
         icon="pen",
     ),
 ]
@@ -43,17 +43,28 @@ async def get_skills():
 
 @router.get("/config", response_model=ProviderConfig)
 async def get_provider_config():
+    from app.services.llm.models import (
+        get_fallback_model,
+        get_model_catalog,
+        get_model_endpoints,
+        get_skill_models,
+    )
+
     config = get_config()
     llm_cfg = config.get("llm", {})
     stt_cfg = config.get("stt", {})
     tts_cfg = config.get("tts", {})
     return ProviderConfig(
         llm_provider=llm_cfg.get("provider", "ollama"),
-        llm_model=llm_cfg.get("model", "llama3.2"),
+        llm_model=get_fallback_model(),
         stt_provider=stt_cfg.get("provider", "whisper"),
         tts_provider=tts_cfg.get("provider", "edge"),
         available_accents=["uk", "us", "au"],
         available_genders=["female", "male"],
+        model_catalog=get_model_catalog(),
+        models_by_skill=get_skill_models(),
+        model_endpoints=get_model_endpoints(),
+        default_model_mode=str(llm_cfg.get("selection_mode", "auto")),
     )
 
 

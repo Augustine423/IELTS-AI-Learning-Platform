@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Import a locally downloaded GGUF file into Ollama (no internet needed).
+# Stage a GGUF for offline Ollama image bake, then rebuild the ollama service.
 set -euo pipefail
 
 usage() {
@@ -13,42 +13,44 @@ usage() {
 GGUF_PATH="$1"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CONFIG="${ROOT}/docker/config.yaml"
+ENV_FILE="${ROOT}/.env"
 MODEL="${2:-${OLLAMA_MODEL:-}}"
 
 if [[ -z "$MODEL" && -f "$CONFIG" ]]; then
   MODEL="$(grep -E '^\s*model:' "$CONFIG" | head -1 | sed -E 's/.*model:\s*//')"
 fi
 MODEL="${MODEL:-llama3.2}"
-OLLAMA_HOST="${OLLAMA_HOST:-http://127.0.0.1:11434}"
 
 [[ -f "$GGUF_PATH" ]] || { echo "ERROR: File not found: $GGUF_PATH"; exit 1; }
 [[ "$GGUF_PATH" == *.gguf ]] || { echo "ERROR: Expected a .gguf file"; exit 1; }
 
-if ! curl -sf "${OLLAMA_HOST}/api/tags" >/dev/null 2>&1; then
-  echo "ERROR: Ollama is not running. Install and start Ollama first."
-  exit 1
+MODELS_DIR="${ROOT}/models"
+mkdir -p "$MODELS_DIR"
+DEST="${MODELS_DIR}/$(basename "$GGUF_PATH")"
+cp -f "$GGUF_PATH" "$DEST"
+
+if [[ ! -f "$ENV_FILE" ]]; then
+  cp "${ROOT}/.env.example" "$ENV_FILE"
 fi
 
-GGUF_DIR="$(cd "$(dirname "$GGUF_PATH")" && pwd)"
-GGUF_NAME="$(basename "$GGUF_PATH")"
-MODELFILE="${GGUF_DIR}/Modelfile"
+tmp="$(mktemp)"
+awk -v model="$MODEL" '
+  BEGIN { m=0; o=0 }
+  /^OLLAMA_MODEL=/ { print "OLLAMA_MODEL=" model; m=1; next }
+  /^OFFLINE_BUILD=/ { print "OFFLINE_BUILD=1"; o=1; next }
+  { print }
+  END {
+    if (!m) print "OLLAMA_MODEL=" model
+    if (!o) print "OFFLINE_BUILD=1"
+  }
+' "$ENV_FILE" > "$tmp" && mv "$tmp" "$ENV_FILE"
 
-echo "FROM ./${GGUF_NAME}" > "$MODELFILE"
-
-echo "==> Importing offline model"
-echo "    GGUF:      ${GGUF_DIR}/${GGUF_NAME}"
-echo "    Name:      $MODEL"
-echo "    Modelfile: $MODELFILE"
+echo "==> Staged GGUF for offline bake"
+echo "    Source: $GGUF_PATH"
+echo "    Dest:   $DEST"
+echo "    Name:   $MODEL"
 echo ""
 
-(cd "$GGUF_DIR" && ollama create "$MODEL" -f Modelfile)
-
-SIZE="$(ollama list 2>/dev/null | awk -v m="$MODEL" 'NR>1 && $1 ~ "^"m"($|:)" { print $3; exit }')"
-if [[ -n "$SIZE" && "$SIZE" != "-" ]]; then
-  echo ""
-  echo "==> Success! Local model '$MODEL' is ready ($SIZE)."
-  echo "    Run: ./scripts/start.sh"
-else
-  echo "ERROR: Import finished but model not found in ollama list."
-  exit 1
-fi
+export OLLAMA_MODEL="$MODEL"
+export OFFLINE_BUILD=1
+"$ROOT/scripts/build-ollama.sh" --offline "$MODEL"

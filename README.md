@@ -1,41 +1,134 @@
 # IELTS AI Learning Platform
 
-An offline-first IELTS tutor with voice conversation, configurable accents (UK / US / Australian), and support for all four skills: **Listening**, **Speaking**, **Reading**, and **Writing**.
+Offline-first IELTS tutor for **Listening**, **Speaking**, **Reading**, and **Writing** — situational dialogues, live voice practice, and UK / US / Australian accents.
 
-> **Quickest path:** Install [Ollama](https://ollama.com) + [Docker Desktop](https://www.docker.com/products/docker-desktop/) → **download a local model** → `.\scripts\start.ps1` → open http://localhost:3000
+```
+Browser → Frontend (:3000) → Backend API (:8000)
+                                  │
+          ┌───────────────────────┼───────────────────────┐
+          ▼                       ▼                       ▼
+   ollama-llama32          ollama-llama31           ollama-qwen25 …
+   (llama3.2)              (llama3.1:8b)            (qwen2.5:7b)
+   always on               profile: full            profile: full
+```
+
+Separate **Ubuntu + Ollama** images (not the official `ollama/ollama` image) — one model per image so builds stay smaller.
+
+> **Quick start:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) → `.\scripts\start.ps1` → http://localhost:3000  
+> Default = `llama3.2` only. All skill models: `.\scripts\start.ps1 --full`
 
 ---
 
-## Stack Recommendations (Why These Choices)
+## Requirements
 
-### LLM Engine — **LangChain + Ollama (primary)**
+| Need | Notes |
+|------|--------|
+| [Docker Desktop](https://www.docker.com/products/docker-desktop/) | Recommended path |
+| ~8 GB RAM | More RAM if you run `--full` (several models) |
+| Disk | ~3 GB for default; ~20 GB if you build all four model images |
+| Internet | Only for the **first** image build (or offline GGUF bake) |
 
-| Option | Cost | Best for | Verdict |
-|--------|------|----------|---------|
-| **Ollama** (free local models) | Free, offline | Writing feedback, reading Q&A, speaking prompts | **Required — download before first run** |
-| Ollama cloud models (`:cloud` tag) | Free tier, online | — | **Not supported** — usage limits, needs Ollama servers |
-| Groq (Llama 3) | Free tier online | Fast fallback when Ollama is slow | Optional online |
-| OpenRouter | Pay-per-use | Future premium models | Plug-in ready |
+No host Ollama install required.
 
-**Why LangChain over LlamaIndex?** LangChain excels at multi-provider LLM switching and conversational agents. LlamaIndex is better for document RAG — use it later if you add IELTS passage libraries.
+---
 
-### Speech-to-Text (STT)
+## Quick start (Docker)
 
-| Provider | Cost | Offline? | Verdict |
-|----------|------|----------|---------|
-| **faster-whisper** | **100% free** | **Yes** | **Default — no API key needed** |
-| Deepgram Nova-2 | $200 free credit | No | Optional online upgrade |
-| AssemblyAI | Free tier | No | Optional online alternative |
+### Default (small — `llama3.2` only)
 
-### Text-to-Speech (TTS)
+**Windows**
+```powershell
+copy .env.example .env
+.\scripts\start.ps1
+```
 
-| Provider | Cost | UK/US/AU accents | Verdict |
-|----------|------|------------------|---------|
-| **ElevenLabs** | Limited free tier | Yes (premium quality) | Best quality when online |
-| **Edge TTS** (Microsoft) | **100% free** | Yes — en-GB, en-US, en-AU | **Default offline TTS** |
-| Piper TTS | Free | Limited | Fully offline alternative |
+**Linux / macOS**
+```bash
+cp .env.example .env
+chmod +x scripts/*.sh docker/ollama/*.sh
+./scripts/start.sh
+```
 
-**Voice mapping (Edge TTS — free):**
+### Full stack (all four models — auto skill routing)
+
+```powershell
+.\scripts\start.ps1 --full
+```
+
+```bash
+./scripts/start.sh --full
+```
+
+| Service | URL |
+|---------|-----|
+| App | http://localhost:3000 |
+| API | http://localhost:8000 |
+| API docs | http://localhost:8000/docs |
+| Ollama `llama3.2` | http://localhost:11434 |
+| Ollama `llama3.1:8b` | http://localhost:11435 (`--full`) |
+| Ollama `qwen2.5:7b` | http://localhost:11436 (`--full`) |
+| Ollama `gemma2:9b` | http://localhost:11437 (`--full`) |
+
+Stop:
+```bash
+docker compose --profile full down   # if you used --full
+docker compose down
+```
+
+---
+
+## Models (free, local, offline after bake)
+
+| Image | Model | Skill (auto) | ~Size |
+|-------|-------|--------------|-------|
+| `ielts-ai-ollama-llama32` | `llama3.2` | Listening (+ fallback) | ~2 GB |
+| `ielts-ai-ollama-llama31` | `llama3.1:8b` | Speaking | ~5 GB |
+| `ielts-ai-ollama-qwen25` | `qwen2.5:7b` | Writing | ~5 GB |
+| `ielts-ai-ollama-gemma2` | `gemma2:9b` | Reading | ~6 GB |
+
+All are **free** open-weight models via Ollama. Cloud tags (`*:cloud`) are **not** supported.
+
+### Auto vs manual
+
+| Mode | How |
+|------|-----|
+| **Auto** (default) | Backend picks the model from the skill map above |
+| **Manual** | UI **Model** control → choose any catalog model |
+| **Fallback** | If a model container is down, API uses `llama3.2` |
+
+Web enrich (optional checkbox) adds DuckDuckGo study tips to the prompt. Needs network on the **backend**; Ollama itself does not browse the web.
+
+---
+
+## Offline model bake
+
+If `ollama pull` is blocked during image build, place a matching `.gguf` under `models/` (e.g. `llama3.2.gguf`) then:
+
+```powershell
+$env:OFFLINE_BUILD=1
+.\scripts\build-ollama.ps1 -Target llama32 -Offline
+.\scripts\start.ps1
+```
+
+Or use the helper (stages GGUF + rebuilds):
+
+```powershell
+.\scripts\import-model-offline.ps1 -GgufPath "C:\Downloads\Llama-3.2-3B-Instruct-Q4_K_M.gguf"
+```
+
+---
+
+## Stack
+
+| Layer | Default | Notes |
+|-------|---------|--------|
+| LLM | Custom Ubuntu images + Ollama | One model per image |
+| STT | faster-whisper (`tiny` in Docker) | Free, offline |
+| TTS | Edge TTS | Free UK / US / AU |
+| API | FastAPI + LangChain | Routes to the right Ollama URL |
+| UI | Next.js 15 | Scenarios, chat, live dialogue, model picker |
+
+**Edge TTS voices**
 
 | Accent | Female | Male |
 |--------|--------|------|
@@ -43,365 +136,181 @@ An offline-first IELTS tutor with voice conversation, configurable accents (UK /
 | US | `en-US-JennyNeural` | `en-US-GuyNeural` |
 | Australian | `en-AU-NatashaNeural` | `en-AU-WilliamNeural` |
 
-### Frontend — **Next.js 15 + Vercel AI SDK**
-
-Streaming chat UI, audio recording, and accent/voice preferences. Talks to FastAPI via REST + SSE.
-
-### Backend — **FastAPI + LangChain**
-
-Pluggable LLM, STT, and TTS providers via a factory pattern. Add new engines in `config.yaml` without code changes.
-
----
-
-## Quick Start (Recommended — Docker)
-
-Uses **your local Ollama** with a **locally downloaded model**. Cloud models (`:cloud`) are not used — they need Ollama's servers and can hit usage limits.
-
-### Prerequisites
-
-1. **[Docker Desktop](https://www.docker.com/products/docker-desktop/)** — installed and running
-2. **[Ollama](https://ollama.com/download)** — installed and running
-
-### 1. Download a local model (required)
-
-The app will not start until a **local** model is installed on your machine.
-
-**Windows (offline / blocked network):**
-```powershell
-copy docker\.env.example docker\.env   # enables OFFLINE=1
-.\scripts\setup-model.ps1 -Offline       # shows import steps, skips pull
-```
-
-**Linux / macOS:**
-```bash
-chmod +x scripts/*.sh
-./scripts/setup-model.sh
-```
-
-This downloads `llama3.2` (~2 GB) by default. If `ollama pull` works on your network, the script handles it automatically.
-
-**Blocked by firewall or country restrictions?** See [Offline model import](#offline-model-import-restricted-networks) below.
-
-### 2. Start the app
-
-**Windows:**
-```powershell
-.\scripts\start.ps1
-```
-
-**Linux / macOS:**
-```bash
-./scripts/start.sh
-```
-
-The start script checks the local model first, then runs `docker compose up`.
-
-First run will pull Docker images from Docker Hub (~200 MB). After that it starts in seconds.
-
-Open:
-- **Frontend:** http://localhost:3000
-- **Backend API:** http://localhost:8000
-- **API docs:** http://localhost:8000/docs
-
-### 3. Stop the app
-
-```bash
-docker compose down
-```
-
-The app talks to your host's Ollama via `host.docker.internal:11434` (set in `docker/config.yaml`).
-
----
-
-## Offline model import (restricted networks)
-
-If `ollama pull` is blocked by your firewall or country, **do not use cloud models**. Import a local GGUF file instead — only the initial download needs internet (or use a USB / another PC).
-
-### Quick offline setup (Windows)
-
-```powershell
-# 1. Copy docker/.env (sets OFFLINE=1 so setup skips ollama pull)
-copy docker\.env.example docker\.env
-
-# 2. Download GGUF (~2 GB) via mirror:
-#    https://hf-mirror.com/bartowski/Llama-3.2-3B-Instruct-GGUF
-#    File: Llama-3.2-3B-Instruct-Q4_K_M.gguf
-
-# 3. Import (no internet needed after download):
-.\scripts\import-model-offline.ps1 -GgufPath "C:\Downloads\Llama-3.2-3B-Instruct-Q4_K_M.gguf"
-
-# 4. Verify — SIZE must show e.g. 2.0 GB, NOT "-":
-ollama list
-
-# 5. Start:
-.\scripts\start.ps1
-```
-
-### Option B — Copy from another machine
-
-Copy the Ollama models folder from a PC that already has the model:
-
-| OS | Path |
-|----|------|
-| Windows | `%USERPROFILE%\.ollama\models` |
-| Linux / macOS | `~/.ollama/models` |
-
-Then run `ollama list` and `.\scripts\start.ps1`.
-
-### Option C — Manual Modelfile
-
-See `models/Modelfile.example`. Place it next to your `.gguf` file, then:
-
-```bash
-ollama create llama3.2 -f Modelfile
-```
-
----
-
-## Quick Start (Development — No Docker)
-
-If you want to hack on the code:
-
-### Prerequisites
-
-- Python 3.11+
-- Node.js 20+
-- [Ollama](https://ollama.com) with a model pulled (see above)
-
-### 1. Backend
-
-```bash
-cd backend
-python -m venv venv
-venv\Scripts\activate        # Windows
-pip install -r requirements.txt
-copy .env.example .env       # Add API keys if using online services
-uvicorn app.main:app --reload --port 8000
-```
-
-### 2. Frontend
-
-```bash
-cd frontend
-npm install
-copy .env.local.example .env.local
-npm run dev
-```
-
-Open **http://localhost:3000**
-
----
-
-## Free Ollama Models (Tested with IELTS)
-
-All models below are **free**. The first two run **locally** on your machine (need RAM/disk). The cloud models need internet but no GPU/disk.
-
-### Local models (required)
-
-| Model | Size | RAM needed | Best for | Command |
-|-------|------|------------|----------|---------|
-| **llama3.2** ⭐ | 2.0 GB | ~4 GB | Default — general IELTS work, low-end hardware | `ollama pull llama3.2` |
-| **llama3.2:3b** | 2.0 GB | ~4 GB | Same as above, smaller variant | `ollama pull llama3.2:3b` |
-| **qwen2.5:7b** | 4.7 GB | ~8 GB | **Writing feedback** (best open model for essay grading) | `ollama pull qwen2.5:7b` |
-| **mistral** | 4.1 GB | ~8 GB | Reading comprehension, Q&A | `ollama pull mistral` |
-| **gemma2:9b** | 5.4 GB | ~10 GB | Balanced writing + speaking | `ollama pull gemma2:9b` |
-| **phi3:medium** | 7.9 GB | ~12 GB | Strong reasoning, good for Speaking prompts | `ollama pull phi3:medium` |
-| **llama3.1:8b** | 4.7 GB | ~8 GB | General, good fallback | `ollama pull llama3.1:8b` |
-
-> **Note:** Only **local** models work (SIZE column in `ollama list` shows e.g. `2.0 GB`). Cloud models (`:cloud`, SIZE `-`) are not supported.
-
-### How to switch models
-
-1. Edit `docker/config.yaml` (Docker) or `backend/config.yaml` (dev):
-   ```yaml
-   llm:
-     provider: ollama
-     model: qwen2.5:7b          # ← change to any model from the table
-     base_url: http://localhost:11434
-   ```
-2. Restart the backend:
-   ```bash
-   docker compose restart backend
-   ```
-
-### Checking what's installed
-
-```bash
-ollama list
-```
-
-Shows all locally-pulled models. To remove one:
-
-```bash
-ollama rm llama3.2
-```
+Each skill page: **scenario picker** → **Chat** or **Live dialogue** → optional **web enrich** + **Auto/Manual model**.
 
 ---
 
 ## Configuration
 
-Edit `backend/config.yaml` (or `docker/config.yaml` for the Docker setup) to switch providers:
+| File | Purpose |
+|------|---------|
+| `.env` | `OFFLINE_BUILD` for image builds |
+| `docker/config.yaml` | Skill→model map + per-model **endpoints** (Compose) |
+| `backend/config.yaml` | Same for local dev (host ports 11434–11437) |
+| `backend/.env` | Optional paid API keys |
+
+Example (`docker/config.yaml`):
 
 ```yaml
 llm:
-  provider: ollama          # ollama | openai_compatible | groq
+  provider: ollama
   model: llama3.2
-  base_url: http://localhost:11434
-
-stt:
-  provider: whisper         # whisper | deepgram | assemblyai
-  model: base               # whisper: tiny | base | small | medium
-  language: en
-
-tts:
-  provider: edge            # edge | elevenlabs
-```
-
-Environment variables (`.env`) override secrets:
-
-```
-OLLAMA_BASE_URL=http://localhost:11434
-# Optional — only needed if you switch away from free defaults
-DEEPGRAM_API_KEY=
-ASSEMBLYAI_API_KEY=
-ELEVENLABS_API_KEY=
-OPENAI_API_KEY=              # for openai_compatible / groq
-```
-
-### How the backend finds your Ollama
-
-The backend (running in Docker) reaches Ollama on your **host machine** using `host.docker.internal`. This works on Windows and macOS out of the box. On Linux you may need `--add-host=host.docker.internal:host-gateway` in the backend's `docker run` command, or replace it with `172.17.0.1` in `docker/config.yaml`.
-
----
-
-## Project Structure
-
-```
-IELTS AI Model/
-├── backend/
-│   ├── app/
-│   │   ├── main.py              # FastAPI entry
-│   │   ├── config.py            # YAML + env config loader
-│   │   ├── routers/             # API routes
-│   │   └── services/
-│   │       ├── llm/             # Ollama, OpenAI-compatible
-│   │       ├── voice/           # STT + TTS providers
-│   │       └── ielts/           # Skill-specific prompts
-│   ├── config.yaml
-│   └── requirements.txt
-├── frontend/
-│   └── src/
-│       ├── app/                 # Next.js pages
-│       ├── components/          # UI components
-│       └── lib/                 # API client
-├── k8s/                         # Kubernetes manifests
-├── .github/workflows/           # CI/CD pipelines
-└── docker-compose.yml
+  base_url: http://ollama-llama32:11434
+  selection_mode: auto
+  models:
+    catalog: [llama3.2, qwen2.5:7b, llama3.1:8b, gemma2:9b]
+    by_skill:
+      listening: llama3.2
+      speaking: llama3.1:8b
+      reading: gemma2:9b
+      writing: qwen2.5:7b
+    endpoints:
+      llama3.2: http://ollama-llama32:11434
+      llama3.1:8b: http://ollama-llama31:11434
+      qwen2.5:7b: http://ollama-qwen25:11434
+      gemma2:9b: http://ollama-gemma2:11434
 ```
 
 ---
 
-## IELTS Skills
+## Local development
 
-| Skill | Features |
-|-------|----------|
-| **Listening** | AI reads passages aloud (TTS), comprehension questions |
-| **Speaking** | Voice conversation, fluency & pronunciation feedback |
-| **Reading** | Passage analysis, vocabulary, inference questions |
-| **Writing** | Essay review with band-score-style feedback (TA, CC, LR, GRA) |
-
----
-
-## Adding a New LLM Provider
-
-1. Create `backend/app/services/llm/your_provider.py` implementing `BaseLLM`.
-2. Register in `backend/app/services/llm/factory.py`.
-3. Add to `config.yaml` under `llm.provider`.
-
-No frontend changes required.
-
----
-
-## Docker
-
-Pre-built images are on Docker Hub (built by GitHub Actions). The default `docker-compose.yml` runs **backend + frontend** and uses your **local Ollama** for the LLM (no Ollama in Docker).
+Start at least the default Ollama container:
 
 ```bash
-docker compose up      # start
-docker compose down    # stop
-docker compose logs -f # follow logs
+docker compose up ollama-llama32 -d
+# or: docker compose --profile full up -d
 ```
 
-Images used:
-- `kyawzayarsoe/ielts-ai-backend:latest`
-- `kyawzayarsoe/ielts-ai-frontend:latest`
+**Backend**
+```bash
+cd backend
+python -m venv venv
+# Windows: venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env
+uvicorn app.main:app --reload --port 8000
+```
 
-To build images locally instead (optional):
+**Frontend**
+```bash
+cd frontend
+npm install
+cp .env.local.example .env.local
+npm run dev
+```
+
+Open http://localhost:3000
+
+---
+
+## Project layout
+
+```
+├── backend/                 # FastAPI — routes chat to the correct Ollama URL
+├── frontend/                # Next.js UI + proxy
+├── docker/
+│   ├── config.yaml          # Mounted into backend
+│   └── ollama/              # Multi-stage Dockerfile (base + one model)
+├── models/                  # Optional .gguf for offline bake
+├── scripts/                 # start / build-ollama / import-model-offline
+├── k8s/                     # Kubernetes (llama32 by default)
+├── .github/workflows/       # Build & push all images to Docker Hub
+├── docker-compose.yml       # Separate Ollama services + profile full
+└── .env.example
+```
+
+---
+
+## Docker images & Compose
+
+Multi-stage file: `docker/ollama/Dockerfile`
+
+| Target | Role |
+|--------|------|
+| `ollama-base` | Ubuntu + Ollama binary (shared cache) |
+| `ollama-model` | Base + **one** baked model (`BAKE_MODEL`) |
 
 ```bash
-docker build -t kyawzayarsoe/ielts-ai-backend ./backend
-docker build -t kyawzayarsoe/ielts-ai-frontend --build-arg NEXT_PUBLIC_API_URL=http://localhost:8000 ./frontend
+docker compose up --build                    # llama3.2 only
+docker compose --profile full up --build     # all four model containers
+.\scripts\build-ollama.ps1 -Target all       # rebuild all model images
+.\scripts\build-ollama.ps1 -Target qwen25    # rebuild writing image only
 ```
 
-### Troubleshooting Docker
+Also: `ielts-ai-backend`, `ielts-ai-frontend`.
 
-- **Ollama 429 / session usage limit:** You are using a cloud model (`:cloud`). Switch to a local model in `docker/config.yaml` (e.g. `llama3.2`) and run `.\scripts\setup-model.ps1`.
-- **ollama pull fails / network blocked:** Use [offline model import](#offline-model-import-restricted-networks) — download GGUF manually or copy `~/.ollama/models` from another PC.
-- **Speaking transcription slow on first use:** Whisper downloads the `base` model (~150 MB) on first STT request. Use `stt.model: tiny` in config for faster/lighter transcription.
-- **`host.docker.internal` not resolving (Linux):** Use `172.17.0.1` instead, or run Ollama in Docker (see notes below).
-- **Want to use Ollama in Docker instead of local?** Uncomment the `ollama` and `ollama-pull` services in `docker-compose.yml`, then set `base_url: http://ollama:11434` in `docker/config.yaml`.
+### Troubleshooting
+
+| Issue | Fix |
+|-------|-----|
+| First start slow | Model bake downloads once; later starts reuse the image |
+| Health degraded | `docker compose up ollama-llama32 -d` then restart backend |
+| Auto model not used | Run with `--full` so speaking/reading/writing containers exist |
+| `ollama pull` blocked | [Offline model bake](#offline-model-bake) |
+| Speaking STT slow | Whisper `tiny` is pre-baked in the backend image |
 
 ---
 
 ## GitHub Actions → Docker Hub
 
-Workflow: `.github/workflows/docker-build-push.yml`
+Workflow: [`.github/workflows/docker-build-push.yml`](.github/workflows/docker-build-push.yml)
 
-**Required GitHub secret:**
+Builds and pushes images on **push to `main`/`master`**, **version tags `v*`**, or **manual run**.
 
-| Secret | Description |
-|--------|-------------|
-| `DOCKERHUB_TOKEN` | Docker Hub access token ([create here](https://hub.docker.com/settings/security)) |
+| Job | Images |
+|-----|--------|
+| Backend | `kyawzayarsoe/ielts-ai-backend` |
+| Frontend | `kyawzayarsoe/ielts-ai-frontend` |
+| Ollama (matrix × 4) | `…-ollama-llama32`, `…-llama31`, `…-qwen25`, `…-gemma2` |
 
-Docker Hub username is set to `kyawzayarsoe` in the workflow.
+| Event | Backend / Frontend | Ollama (4 images) |
+|-------|--------------------|-------------------|
+| Pull request | Build only (no push) | Skipped* |
+| Push `main` / tags / manual | Build + push | Build + push |
 
-**Optional GitHub variable:**
+\*Add PR label `build-ollama` to also build Ollama images on a PR.
 
-| Variable | Description |
-|----------|-------------|
-| `NEXT_PUBLIC_API_URL` | Public backend URL baked into frontend image (e.g. `https://api.ielts.example.com`) |
+**Required secret:** `DOCKERHUB_TOKEN` (Docker Hub access token)  
+**Optional variable:** `DOCKERHUB_USERNAME` (default `kyawzayarsoe`)
 
-Images pushed to:
+**Manual run inputs:** `skip_ollama`, `platforms` (default `linux/amd64`).
 
-- `kyawzayarsoe/ielts-ai-backend:latest`
-- `kyawzayarsoe/ielts-ai-frontend:latest`
+Pull after CI:
+
+```bash
+docker pull kyawzayarsoe/ielts-ai-backend:latest
+docker pull kyawzayarsoe/ielts-ai-frontend:latest
+docker pull kyawzayarsoe/ielts-ai-ollama-llama32:latest
+docker pull kyawzayarsoe/ielts-ai-ollama-llama31:latest
+docker pull kyawzayarsoe/ielts-ai-ollama-qwen25:latest
+docker pull kyawzayarsoe/ielts-ai-ollama-gemma2:latest
+```
 
 ---
 
-## Kubernetes Deployment
-
-Manifests live in `k8s/`.
-
-1. Update `k8s/secret.yaml` with your API keys (or create via kubectl).
-2. Update hostnames in `k8s/ingress.yaml` (`ielts.example.com`, `api.ielts.example.com`).
-
-Deploy:
+## Kubernetes
 
 ```bash
+# Edit k8s/ingress.yaml and k8s/secret.yaml first
 kubectl apply -k k8s/
-```
-
-Verify:
-
-```bash
 kubectl get pods -n ielts-ai
-kubectl get ingress -n ielts-ai
 ```
 
-**Note:** For offline LLM, deploy Ollama separately in the cluster and point `config.yaml` / `OLLAMA_BASE_URL` to that service.
+Default manifests deploy **`ollama-llama32`**. Extra model services (`ollama-llama31`, `ollama-qwen25`, `ollama-gemma2`) can be added to match `llm.models.endpoints` in the ConfigMap.
+
+---
+
+## Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/start.*` | Build + `docker compose up` (`--full` = all models) |
+| `scripts/build-ollama.*` | Rebuild one or all Ollama images (`-Target llama32\|qwen25\|…\|all`) |
+| `scripts/import-model-offline.*` | Stage GGUF → offline bake |
 
 ---
 
 ## License
 
-MIT — built for personal IELTS learning.
+MIT — see [LICENSE](LICENSE).

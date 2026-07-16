@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { SkillCard } from "@/components/SkillCard";
 import { VoiceSelector } from "@/components/VoiceSelector";
 import { fetchSkills, fetchHealth, SkillInfo } from "@/lib/api";
 import { useVoicePreferences } from "@/lib/useVoicePreferences";
-import { GraduationCap, Wifi, WifiOff } from "lucide-react";
+import { MessageCircle, Sparkles, Waves } from "lucide-react";
 
 export default function HomePage() {
   const [skills, setSkills] = useState<SkillInfo[]>([]);
@@ -22,56 +23,112 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div className="min-h-screen">
-      <header className="bg-gradient-to-r from-ielts-navy to-ielts-blue text-white">
-        <div className="max-w-6xl mx-auto px-6 py-8">
-          <div className="flex items-center gap-3 mb-2">
-            <GraduationCap className="w-8 h-8" />
-            <h1 className="text-3xl font-bold">IELTS AI Tutor</h1>
-          </div>
-          <p className="text-blue-100 text-lg">
-            Practice all 4 skills with AI — voice, text, UK/US/Australian accents
+    <div className="page-shell">
+      <header className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-ink via-ink-soft to-sea-deep" />
+        <div
+          className="absolute inset-0 opacity-40"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 20% 30%, rgba(42,143,156,0.45), transparent 40%), radial-gradient(circle at 85% 20%, rgba(201,162,39,0.28), transparent 35%)",
+          }}
+        />
+        <div className="relative max-w-6xl mx-auto px-6 pt-14 pb-16 md:pt-20 md:pb-24">
+          <p className="animate-fade-up text-gold-soft text-sm font-semibold tracking-[0.2em] uppercase mb-4">
+            Offline · Conversational · Exam-ready
           </p>
+          <h1 className="brand-mark animate-fade-up text-5xl md:text-7xl text-white leading-[1.05] max-w-3xl">
+            IELTS AI
+          </h1>
+          <p
+            className="animate-fade-up mt-5 text-lg md:text-xl text-white/75 max-w-xl text-balance"
+            style={{ animationDelay: "80ms" }}
+          >
+            Situational dialogues and skill drills with a live tutor — speak,
+            listen, read, and write with UK, US, or Australian voices.
+          </p>
+
+          <div
+            className="animate-fade-up mt-8 flex flex-wrap items-center gap-3"
+            style={{ animationDelay: "140ms" }}
+          >
+            <a
+              href="#skills"
+              className="inline-flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 text-ink font-semibold text-sm hover:bg-gold-soft transition-colors"
+            >
+              <Sparkles className="w-4 h-4" />
+              Choose a skill
+            </a>
+            <Link
+              href="/skills/speaking"
+              className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/5 px-5 py-2.5 text-white text-sm font-medium hover:bg-white/10 transition-colors"
+            >
+              <MessageCircle className="w-4 h-4" />
+              Start speaking dialogue
+            </Link>
+          </div>
+
           {health && (
-            <div className="flex items-center gap-2 mt-4 text-sm">
-              {health.ollama_available ? (
-                <Wifi className="w-4 h-4 text-green-300" />
-              ) : (
-                <WifiOff className="w-4 h-4 text-amber-300" />
-              )}
-              <span className="text-blue-100">
-                {health.ollama_available
-                  ? `Connected — ${health.llm_provider} / ${health.llm_model}`
-                  : "Ollama offline — start with: ollama pull llama3.2"}
-              </span>
+            <div
+              className="animate-fade-up mt-10 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-white/80"
+              style={{ animationDelay: "200ms" }}
+            >
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  health.ollama_available ? "bg-emerald-400" : "bg-amber-400"
+                }`}
+              />
+              {health.ollama_available
+                ? `Model ready · ${health.llm_model}`
+                : "Ollama offline — run scripts/start.ps1 to bake & start"}
             </div>
           )}
         </div>
+        <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[rgb(238,245,247)] to-transparent" />
       </header>
 
-      <main className="max-w-6xl mx-auto px-6 py-8">
-        <div className="grid lg:grid-cols-4 gap-8">
-          <div className="lg:col-span-1">
+      <main className="max-w-6xl mx-auto px-6 pb-16 -mt-4">
+        <section className="grid lg:grid-cols-[280px_1fr] gap-8 items-start">
+          <aside className="animate-fade-up space-y-4" style={{ animationDelay: "100ms" }}>
             <VoiceSelector preferences={voicePrefs} onChange={setVoicePrefs} />
-            <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
-              <strong>Tip:</strong> Voice settings are saved automatically and apply across all skills.
+            <div className="glass-panel rounded-2xl p-4 text-sm text-ink-muted leading-relaxed">
+              <div className="flex items-center gap-2 text-sea font-semibold mb-2">
+                <Waves className="w-4 h-4" />
+                How it works
+              </div>
+              Pick a skill, choose a <strong className="text-ink">situation</strong>, then
+              chat or tap the mic for hands-free dialogue. Accent applies to TTS
+              replies.
             </div>
-          </div>
+          </aside>
 
-          <div className="lg:col-span-3">
-            <h2 className="text-xl font-bold text-slate-800 mb-4">Choose a Skill</h2>
+          <div id="skills" className="animate-fade-up" style={{ animationDelay: "160ms" }}>
+            <div className="flex items-end justify-between mb-5 gap-4">
+              <div>
+                <h2 className="brand-mark text-3xl text-ink">Practice studio</h2>
+                <p className="text-ink-muted mt-1 text-sm">
+                  Four skills · situational prompts · streaming feedback
+                </p>
+              </div>
+            </div>
             <div className="grid sm:grid-cols-2 gap-4">
-              {skills.map((skill) => (
-                <SkillCard key={skill.id} skill={skill} />
+              {skills.map((skill, i) => (
+                <div
+                  key={skill.id}
+                  className="animate-fade-up"
+                  style={{ animationDelay: `${180 + i * 60}ms` }}
+                >
+                  <SkillCard skill={skill} />
+                </div>
               ))}
             </div>
             {skills.length === 0 && (
-              <p className="text-slate-500 text-center py-12">
-                Loading skills... Make sure the backend is running on port 8000.
+              <p className="text-ink-muted text-center py-16 glass-panel rounded-2xl">
+                Loading skills… Is the backend running on port 8000?
               </p>
             )}
           </div>
-        </div>
+        </section>
       </main>
     </div>
   );

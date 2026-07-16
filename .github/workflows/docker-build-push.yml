@@ -7,28 +7,53 @@ on:
   pull_request:
     branches: [main, master]
   workflow_dispatch:
+    inputs:
+      skip_ollama:
+        description: "Skip building Ollama model images (faster)"
+        type: boolean
+        required: false
+        default: false
+      platforms:
+        description: "Target platforms (comma-separated)"
+        required: false
+        default: "linux/amd64"
+
+concurrency:
+  group: docker-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   REGISTRY: docker.io
-  DOCKERHUB_USERNAME: kyawzayarsoe
-  BACKEND_IMAGE: kyawzayarsoe/ielts-ai-backend
-  FRONTEND_IMAGE: kyawzayarsoe/ielts-ai-frontend
+  DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME || 'kyawzayarsoe' }}
+  BACKEND_IMAGE: ${{ vars.DOCKERHUB_USERNAME || 'kyawzayarsoe' }}/ielts-ai-backend
+  FRONTEND_IMAGE: ${{ vars.DOCKERHUB_USERNAME || 'kyawzayarsoe' }}/ielts-ai-frontend
+  PLATFORMS: ${{ github.event.inputs.platforms || 'linux/amd64' }}
+  PUSH_IMAGES: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch') }}
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # Backend — FastAPI + Whisper
+  # ---------------------------------------------------------------------------
   build-backend:
+    name: Backend image
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: write
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to Docker Hub
-        if: github.event_name != 'pull_request'
+        if: env.PUSH_IMAGES == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ env.DOCKERHUB_USERNAME }}
@@ -40,38 +65,50 @@ jobs:
         with:
           images: ${{ env.BACKEND_IMAGE }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=sha,prefix=
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix=sha-
 
       - name: Build and push backend
         uses: docker/build-push-action@v6
         with:
           context: ./backend
           file: ./backend/Dockerfile
-          push: ${{ github.event_name != 'pull_request' }}
+          platforms: ${{ env.PLATFORMS }}
+          push: ${{ env.PUSH_IMAGES == 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+          provenance: false
+          sbom: false
 
+  # ---------------------------------------------------------------------------
+  # Frontend — Next.js
+  # ---------------------------------------------------------------------------
   build-frontend:
+    name: Frontend image
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: write
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to Docker Hub
-        if: github.event_name != 'pull_request'
+        if: env.PUSH_IMAGES == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ env.DOCKERHUB_USERNAME }}
@@ -83,20 +120,160 @@ jobs:
         with:
           images: ${{ env.FRONTEND_IMAGE }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=sha,prefix=
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix=sha-
 
       - name: Build and push frontend
         uses: docker/build-push-action@v6
         with:
           context: ./frontend
           file: ./frontend/Dockerfile
-          push: ${{ github.event_name != 'pull_request' }}
+          platforms: ${{ env.PLATFORMS }}
+          push: ${{ env.PUSH_IMAGES == 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+          provenance: false
+          sbom: false
+
+  # ---------------------------------------------------------------------------
+  # Ollama — separate images (one model each, shared multi-stage base)
+  # ---------------------------------------------------------------------------
+  build-ollama:
+    name: Ollama · ${{ matrix.slug }}
+    if: >
+      github.event.inputs.skip_ollama != 'true' &&
+      (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'build-ollama'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - slug: llama32
+            model: llama3.2
+            image_suffix: llama32
+          - slug: llama31
+            model: llama3.1:8b
+            image_suffix: llama31
+          - slug: qwen25
+            model: qwen2.5:7b
+            image_suffix: qwen25
+          - slug: gemma2
+            model: gemma2:9b
+            image_suffix: gemma2
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: false
+          swap-storage: true
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        if: env.PUSH_IMAGES == 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKERHUB_USERNAME }}/ielts-ai-ollama-${{ matrix.image_suffix }}
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+            type=semver,pattern={{version}}
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix=sha-
+
+      - name: Build and push model image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./docker/ollama/Dockerfile
+          target: ollama-model
+          platforms: ${{ env.PLATFORMS }}
+          push: ${{ env.PUSH_IMAGES == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BAKE_MODEL=${{ matrix.model }}
+            OFFLINE_BUILD=0
+          cache-from: |
+            type=registry,ref=${{ env.DOCKERHUB_USERNAME }}/ielts-ai-ollama-${{ matrix.image_suffix }}:buildcache
+            type=registry,ref=${{ env.DOCKERHUB_USERNAME }}/ielts-ai-ollama-base:buildcache
+          cache-to: ${{ env.PUSH_IMAGES == 'true' && format('type=registry,ref={0}/ielts-ai-ollama-{1}:buildcache,mode=max', env.DOCKERHUB_USERNAME, matrix.image_suffix) || '' }}
+          provenance: false
+          sbom: false
+
+  # ---------------------------------------------------------------------------
+  # Summary
+  # ---------------------------------------------------------------------------
+  summary:
+    name: CI summary
+    needs: [build-backend, build-frontend, build-ollama]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write job summary
+        env:
+          BACKEND: ${{ needs.build-backend.result }}
+          FRONTEND: ${{ needs.build-frontend.result }}
+          OLLAMA: ${{ needs.build-ollama.result }}
+          PUSH: ${{ env.PUSH_IMAGES }}
+          USER: ${{ env.DOCKERHUB_USERNAME }}
+        run: |
+          {
+            echo "## Docker CI summary"
+            echo ""
+            echo "| Image | Job result |"
+            echo "|-------|------------|"
+            echo "| \`${USER}/ielts-ai-backend\` | ${BACKEND} |"
+            echo "| \`${USER}/ielts-ai-frontend\` | ${FRONTEND} |"
+            echo "| \`${USER}/ielts-ai-ollama-*\` (4 model images) | ${OLLAMA} |"
+            echo ""
+            echo "- **Push to Docker Hub:** \`${PUSH}\`"
+            if [[ "${PUSH}" == "true" ]]; then
+              echo ""
+              echo '```bash'
+              echo "docker pull ${USER}/ielts-ai-ollama-llama32:latest"
+              echo "docker pull ${USER}/ielts-ai-ollama-llama31:latest"
+              echo "docker pull ${USER}/ielts-ai-ollama-qwen25:latest"
+              echo "docker pull ${USER}/ielts-ai-ollama-gemma2:latest"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail if a required build failed
+        if: |
+          needs.build-backend.result == 'failure' ||
+          needs.build-frontend.result == 'failure' ||
+          needs.build-ollama.result == 'failure'
+        run: |
+          echo "One or more image builds failed."
+          exit 1

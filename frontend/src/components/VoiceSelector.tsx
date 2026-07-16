@@ -6,12 +6,13 @@ import { clsx } from "clsx";
 interface VoiceSelectorProps {
   preferences: VoicePreferences;
   onChange: (prefs: VoicePreferences) => void;
+  compact?: boolean;
 }
 
-const ACCENTS: { value: Accent; label: string; flag: string }[] = [
-  { value: "uk", label: "UK", flag: "🇬🇧" },
-  { value: "us", label: "US", flag: "🇺🇸" },
-  { value: "au", label: "Australian", flag: "🇦🇺" },
+const ACCENTS: { value: Accent; label: string }[] = [
+  { value: "uk", label: "UK" },
+  { value: "us", label: "US" },
+  { value: "au", label: "AU" },
 ];
 
 const GENDERS: { value: Gender; label: string }[] = [
@@ -19,48 +20,71 @@ const GENDERS: { value: Gender; label: string }[] = [
   { value: "male", label: "Male" },
 ];
 
-export function VoiceSelector({ preferences, onChange }: VoiceSelectorProps) {
+export function VoiceSelector({
+  preferences,
+  onChange,
+  compact = false,
+}: VoiceSelectorProps) {
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-      <h3 className="text-sm font-semibold text-slate-700 mb-3">Voice Settings</h3>
+    <div
+      className={clsx(
+        "glass-panel rounded-2xl",
+        compact ? "p-3" : "p-4"
+      )}
+    >
+      {!compact && (
+        <h3 className="text-sm font-semibold text-ink mb-3">Tutor voice</h3>
+      )}
 
-      <div className="mb-3">
-        <label className="text-xs text-slate-500 uppercase tracking-wide">Accent</label>
-        <div className="flex gap-2 mt-1">
-          {ACCENTS.map((a) => (
-            <button
-              key={a.value}
-              onClick={() => onChange({ ...preferences, accent: a.value })}
-              className={clsx(
-                "flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all border",
-                preferences.accent === a.value
-                  ? "bg-ielts-blue text-white border-ielts-blue"
-                  : "bg-slate-50 text-slate-600 border-slate-200 hover:border-ielts-blue"
-              )}
-            >
-              {a.flag} {a.label}
-            </button>
-          ))}
+      <div className={compact ? "flex flex-wrap items-center gap-3" : "space-y-3"}>
+        <div className={compact ? "flex items-center gap-2" : ""}>
+          {!compact && (
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
+              Accent
+            </label>
+          )}
+          <div className={clsx("flex gap-1.5", !compact && "mt-1.5")}>
+            {ACCENTS.map((a) => (
+              <button
+                key={a.value}
+                type="button"
+                onClick={() => onChange({ ...preferences, accent: a.value })}
+                className={clsx(
+                  "rounded-full px-3 py-1.5 text-xs font-semibold transition-all border",
+                  preferences.accent === a.value
+                    ? "bg-sea text-white border-sea shadow-sm"
+                    : "bg-white/60 text-ink-muted border-ink/10 hover:border-sea/40"
+                )}
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
 
-      <div>
-        <label className="text-xs text-slate-500 uppercase tracking-wide">Voice</label>
-        <div className="flex gap-2 mt-1">
-          {GENDERS.map((g) => (
-            <button
-              key={g.value}
-              onClick={() => onChange({ ...preferences, gender: g.value })}
-              className={clsx(
-                "flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all border",
-                preferences.gender === g.value
-                  ? "bg-ielts-blue text-white border-ielts-blue"
-                  : "bg-slate-50 text-slate-600 border-slate-200 hover:border-ielts-blue"
-              )}
-            >
-              {g.label}
-            </button>
-          ))}
+        <div className={compact ? "flex items-center gap-2" : ""}>
+          {!compact && (
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
+              Voice
+            </label>
+          )}
+          <div className={clsx("flex gap-1.5", !compact && "mt-1.5")}>
+            {GENDERS.map((g) => (
+              <button
+                key={g.value}
+                type="button"
+                onClick={() => onChange({ ...preferences, gender: g.value })}
+                className={clsx(
+                  "rounded-full px-3 py-1.5 text-xs font-semibold transition-all border",
+                  preferences.gender === g.value
+                    ? "bg-ink text-white border-ink"
+                    : "bg-white/60 text-ink-muted border-ink/10 hover:border-ink/30"
+                )}
+              >
+                {g.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>

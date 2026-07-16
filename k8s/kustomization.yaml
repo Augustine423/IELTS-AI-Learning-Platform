@@ -7,6 +7,7 @@ resources:
   - namespace.yaml
   - configmap.yaml
   - secret.yaml
+  - ollama-deployment.yaml
   - backend-deployment.yaml
   - backend-service.yaml
   - frontend-deployment.yaml
@@ -14,6 +15,9 @@ resources:
   - ingress.yaml
 
 images:
+  - name: kyawzayarsoe/ielts-ai-ollama
+    newName: kyawzayarsoe/ielts-ai-ollama
+    newTag: latest
   - name: kyawzayarsoe/ielts-ai-backend
     newName: kyawzayarsoe/ielts-ai-backend
     newTag: latest

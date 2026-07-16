@@ -6,24 +6,50 @@ import {
   ChatMessage,
   VoicePreferences,
   streamChat,
-  SKILL_STARTERS,
+  ModelPreferences,
 } from "@/lib/api";
+import { SCENARIOS, SKILL_META, Scenario } from "@/lib/scenarios";
 import { VoiceConversation } from "./VoiceConversation";
 import { AudioPlayer } from "./AudioPlayer";
-import { Send, Loader2 } from "lucide-react";
+import {
+  ModelSelector,
+  defaultModelPreferences,
+} from "./ModelSelector";
+import {
+  Send,
+  Globe,
+  MessageSquare,
+  Radio,
+  RotateCcw,
+  Sparkles,
+} from "lucide-react";
+import { clsx } from "clsx";
 
 interface ChatInterfaceProps {
   skill: Skill;
   voicePreferences: VoicePreferences;
 }
 
+type PracticeMode = "chat" | "voice";
+
 export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [streamingText, setStreamingText] = useState("");
+  const [useWebSearch, setUseWebSearch] = useState(skill === "speaking");
+  const [modelPrefs, setModelPrefs] = useState<ModelPreferences>(
+    defaultModelPreferences("auto")
+  );
+  const [activeModel, setActiveModel] = useState<string | null>(null);
+  const [mode, setMode] = useState<PracticeMode>(
+    skill === "speaking" ? "voice" : "chat"
+  );
+  const [activeScenario, setActiveScenario] = useState<Scenario | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<(() => void) | null>(null);
+  const meta = SKILL_META[skill];
+  const scenarios = SCENARIOS[skill];
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -33,8 +59,18 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
     return () => abortRef.current?.();
   }, []);
 
-  function sendMessage(text: string) {
+  function chatOptions() {
+    return {
+      useWebSearch,
+      modelMode: modelPrefs.mode,
+      model: modelPrefs.model,
+    };
+  }
+
+  function sendMessage(text: string, scenario?: Scenario | null) {
     if (!text.trim() || loading) return;
+
+    if (scenario) setActiveScenario(scenario);
 
     const userMsg: ChatMessage = { role: "user", content: text.trim() };
     const updated = [...messages, userMsg];
@@ -53,7 +89,8 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
         accumulated += chunk;
         setStreamingText(accumulated);
       },
-      () => {
+      (meta) => {
+        if (meta?.model) setActiveModel(meta.model);
         setMessages((prev) => [
           ...prev,
           { role: "assistant", content: accumulated },
@@ -66,54 +103,160 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
           ...prev,
           {
             role: "assistant",
-            content: `Error: ${err}. Is Ollama running? Try: ollama pull llama3.2`,
+            content: `Something went wrong: ${err}\n\nTip: start models with \`docker compose --profile full up\` or use Auto + llama3.2.`,
           },
         ]);
         setStreamingText("");
         setLoading(false);
-      }
+      },
+      chatOptions()
     );
   }
 
-  function handleStarter() {
-    sendMessage(SKILL_STARTERS[skill]);
+  function startScenario(scenario: Scenario) {
+    setMode("chat");
+    sendMessage(scenario.prompt, scenario);
   }
 
+  function resetSession() {
+    abortRef.current?.();
+    setMessages([]);
+    setStreamingText("");
+    setLoading(false);
+    setActiveScenario(null);
+    setInput("");
+  }
+
+  const empty = messages.length === 0 && !streamingText;
+
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[400px]">
-        {messages.length === 0 && !streamingText && (
-          <div className="text-center py-12">
-            <p className="text-slate-500 mb-2">
-              Start your {skill} practice session. The AI tutor adapts to your level.
-            </p>
-            <p className="text-slate-400 text-sm mb-6">
-              Tap the mic for hands-free voice conversation, or type below.
-            </p>
+    <div className="flex flex-col h-full min-h-[calc(100vh-8rem)]">
+      {/* Mode + session bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4 pb-2">
+        <div className="inline-flex rounded-full border border-ink/10 bg-white/70 p-1 shadow-sm">
+          <button
+            type="button"
+            onClick={() => setMode("chat")}
+            className={clsx(
+              "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all",
+              mode === "chat"
+                ? "bg-sea text-white shadow-sm"
+                : "text-ink-muted hover:text-ink"
+            )}
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            Chat
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("voice")}
+            className={clsx(
+              "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all",
+              mode === "voice"
+                ? "bg-skill-speaking text-white shadow-sm"
+                : "text-ink-muted hover:text-ink"
+            )}
+          >
+            <Radio className="w-3.5 h-3.5" />
+            Live dialogue
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {activeScenario && (
+            <span className="hidden sm:inline text-xs text-ink-muted truncate max-w-[200px]">
+              Scene · {activeScenario.title}
+            </span>
+          )}
+          {!empty && (
             <button
-              onClick={handleStarter}
-              className="px-6 py-3 bg-ielts-blue text-white rounded-xl hover:bg-ielts-navy transition-colors font-medium"
+              type="button"
+              onClick={resetSession}
+              className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-white/70 px-3 py-1.5 text-xs font-semibold text-ink-muted hover:text-ink transition-colors"
             >
-              Start Practice Session
+              <RotateCcw className="w-3.5 h-3.5" />
+              New session
             </button>
+          )}
+        </div>
+      </div>
+
+      <div className="px-4 pb-2 max-w-sm">
+        <ModelSelector
+          skill={skill}
+          value={modelPrefs}
+          onChange={setModelPrefs}
+          activeModel={activeModel}
+        />
+      </div>
+
+      {/* Messages / scenarios */}
+      <div className="flex-1 overflow-y-auto px-4 py-2 space-y-4">
+        {empty && (
+          <div className="animate-fade-up py-4">
+            <div className="mb-6 max-w-xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sea">
+                {meta.name} studio
+              </p>
+              <h2 className="brand-mark text-3xl text-ink mt-1">{meta.tagline}</h2>
+              <p className="text-sm text-ink-muted mt-2 leading-relaxed">
+                Pick a situation to start a natural dialogue, or open{" "}
+                <strong className="text-ink">Live dialogue</strong> for
+                hands-free speaking with the tutor.
+              </p>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-3">
+              {scenarios.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => startScenario(s)}
+                  disabled={loading}
+                  className="scenario-chip text-left rounded-2xl border border-ink/8 bg-white/80 p-4 hover:border-sea/40"
+                >
+                  <div className="flex items-start gap-2">
+                    <Sparkles className="w-4 h-4 text-gold mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold text-ink">{s.title}</p>
+                      <p className="text-xs text-ink-muted mt-1 leading-relaxed">
+                        {s.blurb}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
         {messages.map((msg, i) => (
           <div
             key={i}
-            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+            className={clsx(
+              "flex animate-fade-up",
+              msg.role === "user" ? "justify-end" : "justify-start"
+            )}
           >
             <div
-              className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                msg.role === "user"
-                  ? "bg-ielts-blue text-white"
-                  : "bg-white border border-slate-200 text-slate-800 shadow-sm"
-              }`}
+              className={clsx(
+                "max-w-[85%] px-4 py-3",
+                msg.role === "user" ? "msg-user" : "msg-ai"
+              )}
             >
-              <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
               {msg.role === "assistant" && (
-                <AudioPlayer text={msg.content} voicePreferences={voicePreferences} />
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-sea mb-1.5">
+                  Tutor
+                </p>
+              )}
+              <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                {msg.content}
+              </p>
+              {msg.role === "assistant" && (
+                <AudioPlayer
+                  text={msg.content}
+                  voicePreferences={voicePreferences}
+                />
               )}
             </div>
           </div>
@@ -121,17 +264,24 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
 
         {streamingText && (
           <div className="flex justify-start">
-            <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-white border border-slate-200 text-slate-800 shadow-sm">
-              <p className="text-sm whitespace-pre-wrap leading-relaxed">{streamingText}</p>
-              <span className="inline-block w-2 h-4 bg-ielts-blue animate-pulse ml-0.5" />
+            <div className="msg-ai max-w-[85%] px-4 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-sea mb-1.5">
+                Tutor
+              </p>
+              <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                {streamingText}
+                <span className="inline-block w-1.5 h-4 bg-sea animate-pulse ml-0.5 align-middle" />
+              </p>
             </div>
           </div>
         )}
 
         {loading && !streamingText && (
           <div className="flex justify-start">
-            <div className="bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-sm">
-              <Loader2 className="w-5 h-5 animate-spin text-ielts-blue" />
+            <div className="msg-ai px-4 py-3 flex items-center gap-1.5">
+              <span className="typing-dot" />
+              <span className="typing-dot" />
+              <span className="typing-dot" />
             </div>
           </div>
         )}
@@ -139,41 +289,85 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
         <div ref={bottomRef} />
       </div>
 
-      <div className="border-t border-slate-200 bg-white p-4">
-        <div className="flex items-end gap-3">
-          <VoiceConversation
-            skill={skill}
-            voicePreferences={voicePreferences}
-            messages={messages}
-            onMessagesChange={setMessages}
-            disabled={loading}
-          />
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage(input);
-              }
-            }}
-            placeholder={
-              skill === "writing"
-                ? "Paste your essay here..."
-                : "Or type your message..."
-            }
-            rows={2}
-            className="flex-1 resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ielts-blue focus:border-transparent"
-            disabled={loading}
-          />
-          <button
-            onClick={() => sendMessage(input)}
-            disabled={loading || !input.trim()}
-            className="p-3 bg-ielts-blue text-white rounded-xl hover:bg-ielts-navy transition-colors disabled:opacity-50"
-          >
-            <Send className="w-5 h-5" />
-          </button>
-        </div>
+      {/* Composer */}
+      <div className="sticky bottom-0 border-t border-ink/8 bg-foam/90 backdrop-blur-md p-4">
+        {mode === "voice" ? (
+          <div className="glass-panel rounded-2xl p-4 flex flex-col sm:flex-row items-center gap-4">
+            <VoiceConversation
+              skill={skill}
+              voicePreferences={voicePreferences}
+              messages={messages}
+              onMessagesChange={setMessages}
+              disabled={loading}
+              useWebSearch={useWebSearch}
+              modelPrefs={modelPrefs}
+              onModelUsed={setActiveModel}
+              onScenarioStart={(s) => setActiveScenario(s)}
+            />
+            <div className="flex-1 text-center sm:text-left">
+              <p className="text-sm font-semibold text-ink">Live dialogue mode</p>
+              <p className="text-xs text-ink-muted mt-1 leading-relaxed">
+                The tutor speaks aloud, then listens. Pause briefly after you
+                finish talking — silence ends your turn.
+              </p>
+              <label className="mt-3 inline-flex items-center gap-2 text-xs text-ink-muted cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={useWebSearch}
+                  onChange={(e) => setUseWebSearch(e.target.checked)}
+                  className="rounded border-ink/20 text-sea focus:ring-sea"
+                />
+                <Globe className="w-3.5 h-3.5" />
+                Enrich with web tips
+              </label>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2 px-1">
+              <label className="inline-flex items-center gap-2 text-xs text-ink-muted cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={useWebSearch}
+                  onChange={(e) => setUseWebSearch(e.target.checked)}
+                  className="rounded border-ink/20 text-sea focus:ring-sea"
+                />
+                <Globe className="w-3.5 h-3.5" />
+                Web enrich (DuckDuckGo tips in the prompt)
+              </label>
+            </div>
+            <div className="flex items-end gap-2">
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage(input);
+                  }
+                }}
+                placeholder={
+                  skill === "writing"
+                    ? "Paste your essay or ask for a topic…"
+                    : empty
+                      ? "Or type your own situation…"
+                      : "Continue the conversation…"
+                }
+                rows={2}
+                className="flex-1 resize-none rounded-2xl border border-ink/10 bg-white/90 px-4 py-3 text-sm text-ink placeholder:text-ink-muted/70 focus:outline-none focus:ring-2 focus:ring-sea/40 focus:border-transparent shadow-sm"
+                disabled={loading}
+              />
+              <button
+                type="button"
+                onClick={() => sendMessage(input)}
+                disabled={loading || !input.trim()}
+                className="p-3.5 rounded-2xl bg-sea text-white hover:bg-sea-deep transition-colors disabled:opacity-40 shadow-md"
+              >
+                <Send className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

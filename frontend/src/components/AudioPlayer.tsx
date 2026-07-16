@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Volume2, VolumeX, Loader2 } from "lucide-react";
+import { Volume2, Square, Loader2 } from "lucide-react";
 import { textToSpeech, VoicePreferences } from "@/lib/api";
 
 interface AudioPlayerProps {
@@ -10,7 +10,11 @@ interface AudioPlayerProps {
   autoPlay?: boolean;
 }
 
-export function AudioPlayer({ text, voicePreferences, autoPlay = false }: AudioPlayerProps) {
+export function AudioPlayer({
+  text,
+  voicePreferences,
+  autoPlay = false,
+}: AudioPlayerProps) {
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -25,6 +29,8 @@ export function AudioPlayer({ text, voicePreferences, autoPlay = false }: AudioP
     if (autoPlay && text) {
       play();
     }
+    // intentionally only when text identity changes for autoplay starters
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text, autoPlay]);
 
   async function play() {
@@ -53,15 +59,16 @@ export function AudioPlayer({ text, voicePreferences, autoPlay = false }: AudioP
 
   return (
     <button
+      type="button"
       onClick={play}
       disabled={loading}
-      className="inline-flex items-center gap-1.5 text-xs text-ielts-blue hover:text-ielts-navy transition-colors mt-2"
+      className="inline-flex items-center gap-1.5 text-xs font-semibold text-sea hover:text-sea-deep transition-colors mt-2.5"
       title="Listen to this response"
     >
       {loading ? (
         <Loader2 className="w-3.5 h-3.5 animate-spin" />
       ) : playing ? (
-        <VolumeX className="w-3.5 h-3.5" />
+        <Square className="w-3 h-3 fill-current" />
       ) : (
         <Volume2 className="w-3.5 h-3.5" />
       )}

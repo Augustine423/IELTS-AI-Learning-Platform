@@ -26,6 +26,9 @@ spec:
             - name: http
               containerPort: 8000
               protocol: TCP
+          env:
+            - name: OLLAMA_BASE_URL
+              value: http://ollama-llama32.ielts-ai.svc.cluster.local:11434
           envFrom:
             - secretRef:
                 name: ielts-ai-secrets

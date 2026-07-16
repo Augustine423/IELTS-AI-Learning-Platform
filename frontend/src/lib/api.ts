@@ -4,10 +4,16 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api/backend";
 export type Accent = "uk" | "us" | "au";
 export type Gender = "female" | "male";
 export type Skill = "listening" | "speaking" | "reading" | "writing";
+export type ModelMode = "auto" | "manual";
 
 export interface VoicePreferences {
   accent: Accent;
   gender: Gender;
+}
+
+export interface ModelPreferences {
+  mode: ModelMode;
+  model: string | null;
 }
 
 export interface ChatMessage {
@@ -29,6 +35,16 @@ export interface ProviderConfig {
   tts_provider: string;
   available_accents: string[];
   available_genders: string[];
+  model_catalog: string[];
+  models_by_skill: Record<string, string>;
+  model_endpoints: Record<string, string>;
+  default_model_mode: string;
+}
+
+export interface ChatOptions {
+  useWebSearch?: boolean;
+  modelMode?: ModelMode;
+  model?: string | null;
 }
 
 export async function fetchSkills(): Promise<SkillInfo[]> {
@@ -48,6 +64,8 @@ export async function fetchHealth(): Promise<{
   ollama_available: boolean;
   llm_provider: string;
   llm_model: string;
+  models_installed: string[];
+  models_by_skill: Record<string, string>;
 }> {
   const res = await fetch(`${API_URL}/health`);
   if (!res.ok) throw new Error("Backend unavailable");
@@ -58,8 +76,12 @@ export async function sendChat(
   skill: Skill,
   messages: ChatMessage[],
   voicePreferences: VoicePreferences,
-  useWebSearch = false
-): Promise<string> {
+  options: ChatOptions | boolean = {}
+): Promise<{ content: string; model: string }> {
+  // Back-compat: sendChat(..., true) meant useWebSearch
+  const opts: ChatOptions =
+    typeof options === "boolean" ? { useWebSearch: options } : options;
+
   const res = await fetch(`${API_URL}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -68,7 +90,9 @@ export async function sendChat(
       messages,
       voice_preferences: voicePreferences,
       stream: false,
-      use_web_search: useWebSearch,
+      use_web_search: opts.useWebSearch ?? false,
+      model_mode: opts.modelMode ?? "auto",
+      model: opts.modelMode === "manual" ? opts.model : null,
     }),
   });
   if (!res.ok) {
@@ -76,7 +100,7 @@ export async function sendChat(
     throw new Error(err.detail || "Chat request failed");
   }
   const data = await res.json();
-  return data.content;
+  return { content: data.content, model: data.model || "" };
 }
 
 export function streamChat(
@@ -84,10 +108,12 @@ export function streamChat(
   messages: ChatMessage[],
   voicePreferences: VoicePreferences,
   onChunk: (text: string) => void,
-  onDone: () => void,
-  onError: (err: string) => void
+  onDone: (meta?: { model?: string }) => void,
+  onError: (err: string) => void,
+  options: ChatOptions = {}
 ): () => void {
   const controller = new AbortController();
+  let lastModel: string | undefined;
 
   fetch(`${API_URL}/api/chat/stream`, {
     method: "POST",
@@ -97,11 +123,17 @@ export function streamChat(
       messages,
       voice_preferences: voicePreferences,
       stream: true,
+      use_web_search: options.useWebSearch ?? false,
+      model_mode: options.modelMode ?? "auto",
+      model: options.modelMode === "manual" ? options.model : null,
     }),
     signal: controller.signal,
   })
     .then(async (res) => {
-      if (!res.ok) throw new Error("Stream failed");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "Stream failed");
+      }
       const reader = res.body?.getReader();
       if (!reader) throw new Error("No reader");
 
@@ -120,6 +152,7 @@ export function streamChat(
           if (line.startsWith("data: ")) {
             try {
               const data = JSON.parse(line.slice(6));
+              if (data.model) lastModel = data.model;
               if (data.content) onChunk(data.content);
               if (data.error) onError(data.error);
             } catch {
@@ -128,7 +161,7 @@ export function streamChat(
           }
         }
       }
-      onDone();
+      onDone({ model: lastModel });
     })
     .catch((e) => {
       if (e.name !== "AbortError") onError(e.message);
@@ -200,9 +233,16 @@ export const SKILL_STARTERS: Record<Skill, string> = {
   listening:
     "I'd like to practice IELTS Listening. Please give me a Section 2 style monologue with 5 comprehension questions.",
   speaking:
-    "Let's practice IELTS Speaking Part 1. Please ask me warm-up questions about my hometown and daily life.",
+    "Let's practice IELTS Speaking Part 1. Please ask me warm-up questions about my hometown and daily life, one question at a time.",
   reading:
     "I'd like an IELTS Academic Reading passage about environmental science with True/False/Not Given questions.",
   writing:
     "I want to practice IELTS Writing Task 2. Please give me an opinion essay topic and I'll write my response.",
+};
+
+export const MODEL_LABELS: Record<string, string> = {
+  "llama3.2": "Llama 3.2 · fast",
+  "llama3.1:8b": "Llama 3.1 8B · dialogue",
+  "qwen2.5:7b": "Qwen 2.5 7B · writing",
+  "gemma2:9b": "Gemma 2 9B · reading",
 };

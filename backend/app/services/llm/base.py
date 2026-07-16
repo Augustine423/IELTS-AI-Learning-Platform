@@ -4,11 +4,21 @@ from typing import AsyncIterator
 
 class BaseLLM(ABC):
     @abstractmethod
-    async def generate(self, messages: list[dict], system_prompt: str = "") -> str:
+    async def generate(
+        self,
+        messages: list[dict],
+        system_prompt: str = "",
+        model: str | None = None,
+    ) -> str:
         pass
 
     @abstractmethod
-    async def stream(self, messages: list[dict], system_prompt: str = "") -> AsyncIterator[str]:
+    async def stream(
+        self,
+        messages: list[dict],
+        system_prompt: str = "",
+        model: str | None = None,
+    ) -> AsyncIterator[str]:
         pass
 
     @abstractmethod

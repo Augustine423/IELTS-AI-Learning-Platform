@@ -8,7 +8,9 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    ollama_base_url: str = "http://localhost:11434"
+    # Empty default so docker/config.yaml (or backend/config.yaml) can define the URL.
+    # Set OLLAMA_BASE_URL to override (used by docker-compose).
+    ollama_base_url: str = ""
     openai_api_key: str = ""
     openai_base_url: str = "https://api.groq.com/openai/v1"
     deepgram_api_key: str = ""

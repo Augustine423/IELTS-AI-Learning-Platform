@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Mic, MicOff, Loader2, Radio } from "lucide-react";
+import { Mic, MicOff, Loader2 } from "lucide-react";
 import {
   Skill,
   ChatMessage,
@@ -9,8 +9,9 @@ import {
   speechToText,
   sendChat,
   speakText,
-  SKILL_STARTERS,
 } from "@/lib/api";
+import { SCENARIOS, Scenario } from "@/lib/scenarios";
+import { clsx } from "clsx";
 
 type VoicePhase = "idle" | "listening" | "processing" | "speaking";
 
@@ -20,6 +21,10 @@ interface VoiceConversationProps {
   messages: ChatMessage[];
   onMessagesChange: (messages: ChatMessage[]) => void;
   disabled?: boolean;
+  useWebSearch?: boolean;
+  modelPrefs?: { mode: "auto" | "manual"; model: string | null };
+  onModelUsed?: (model: string) => void;
+  onScenarioStart?: (scenario: Scenario) => void;
 }
 
 function getSupportedMimeType(): string {
@@ -30,7 +35,10 @@ function getSupportedMimeType(): string {
     "audio/mp4",
   ];
   for (const type of types) {
-    if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(type)) {
+    if (
+      typeof MediaRecorder !== "undefined" &&
+      MediaRecorder.isTypeSupported(type)
+    ) {
       return type;
     }
   }
@@ -48,10 +56,15 @@ export function VoiceConversation({
   messages,
   onMessagesChange,
   disabled,
+  useWebSearch = true,
+  modelPrefs = { mode: "auto", model: null },
+  onModelUsed,
+  onScenarioStart,
 }: VoiceConversationProps) {
   const [active, setActive] = useState(false);
   const [phase, setPhase] = useState<VoicePhase>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [level, setLevel] = useState(0);
 
   const activeRef = useRef(false);
   const messagesRef = useRef(messages);
@@ -65,10 +78,20 @@ export function VoiceConversation({
   const heardSpeechRef = useRef(false);
   const mimeTypeRef = useRef("");
   const stopAudioRef = useRef<(() => void) | null>(null);
+  const webSearchRef = useRef(useWebSearch);
+  const modelPrefsRef = useRef(modelPrefs);
 
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
+
+  useEffect(() => {
+    webSearchRef.current = useWebSearch;
+  }, [useWebSearch]);
+
+  useEffect(() => {
+    modelPrefsRef.current = modelPrefs;
+  }, [modelPrefs]);
 
   const cleanupRecording = useCallback(() => {
     if (silenceTimerRef.current) {
@@ -84,6 +107,7 @@ export function VoiceConversation({
     audioContextRef.current?.close().catch(() => {});
     audioContextRef.current = null;
     analyserRef.current = null;
+    setLevel(0);
   }, []);
 
   const stopSession = useCallback(() => {
@@ -99,7 +123,18 @@ export function VoiceConversation({
 
   const assistantReply = useCallback(
     async (history: ChatMessage[]) => {
-      const reply = await sendChat(skill, history, voicePreferences, true);
+      const prefs = modelPrefsRef.current;
+      const { content: reply, model } = await sendChat(
+        skill,
+        history,
+        voicePreferences,
+        {
+          useWebSearch: webSearchRef.current,
+          modelMode: prefs.mode,
+          model: prefs.model,
+        }
+      );
+      if (model) onModelUsed?.(model);
       if (!activeRef.current) return null;
 
       const withReply: ChatMessage[] = [
@@ -116,7 +151,7 @@ export function VoiceConversation({
       stopAudioRef.current = null;
       return withReply;
     },
-    [skill, voicePreferences, onMessagesChange]
+    [skill, voicePreferences, onMessagesChange, onModelUsed]
   );
 
   const startListening = useCallback(async () => {
@@ -137,7 +172,10 @@ export function VoiceConversation({
 
       const mimeType = getSupportedMimeType();
       mimeTypeRef.current = mimeType;
-      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      const recorder = new MediaRecorder(
+        stream,
+        mimeType ? { mimeType } : undefined
+      );
       recorderRef.current = recorder;
 
       recorder.ondataavailable = (e) => {
@@ -178,7 +216,11 @@ export function VoiceConversation({
 
         if (!activeRef.current) return;
 
-        if (!heardSpeechRef.current || duration < MIN_SPEECH_MS || blob.size < 1000) {
+        if (
+          !heardSpeechRef.current ||
+          duration < MIN_SPEECH_MS ||
+          blob.size < 1000
+        ) {
           setError("Didn't catch that — speak again.");
           startListening();
           return;
@@ -195,7 +237,10 @@ export function VoiceConversation({
             return;
           }
 
-          const userMsg: ChatMessage = { role: "user", content: transcript.trim() };
+          const userMsg: ChatMessage = {
+            role: "user",
+            content: transcript.trim(),
+          };
           const updated = [...messagesRef.current, userMsg];
           onMessagesChange(updated);
           messagesRef.current = updated;
@@ -203,7 +248,8 @@ export function VoiceConversation({
           await assistantReply(updated);
           if (activeRef.current) startListening();
         } catch (e) {
-          const msg = e instanceof Error ? e.message : "Transcription failed.";
+          const msg =
+            e instanceof Error ? e.message : "Transcription failed.";
           setError(msg);
           if (activeRef.current) startListening();
         }
@@ -215,10 +261,11 @@ export function VoiceConversation({
         if (!activeRef.current || !analyserRef.current) return;
 
         analyserRef.current.getByteFrequencyData(data);
-        const level =
+        const avg =
           data.reduce((sum, v) => sum + v, 0) / Math.max(data.length, 1);
+        setLevel(Math.min(1, avg / 80));
 
-        if (level > SILENCE_THRESHOLD) {
+        if (avg > SILENCE_THRESHOLD) {
           heardSpeechRef.current = true;
           silentFor = 0;
         } else if (heardSpeechRef.current) {
@@ -245,9 +292,11 @@ export function VoiceConversation({
 
     let current = messagesRef.current;
     if (current.length === 0) {
+      const scenario = SCENARIOS[skill][0];
+      onScenarioStart?.(scenario);
       const starter: ChatMessage = {
         role: "user",
-        content: SKILL_STARTERS[skill],
+        content: scenario.prompt,
       };
       current = [starter];
       onMessagesChange(current);
@@ -259,11 +308,19 @@ export function VoiceConversation({
       await assistantReply(current);
       if (activeRef.current) await startListening();
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Could not start session.";
+      const msg =
+        e instanceof Error ? e.message : "Could not start session.";
       setError(msg);
       stopSession();
     }
-  }, [assistantReply, onMessagesChange, skill, startListening, stopSession]);
+  }, [
+    assistantReply,
+    onMessagesChange,
+    onScenarioStart,
+    skill,
+    startListening,
+    stopSession,
+  ]);
 
   function handleToggle() {
     if (active) {
@@ -274,55 +331,59 @@ export function VoiceConversation({
   }
 
   const phaseLabel: Record<VoicePhase, string> = {
-    idle: "Tap to start voice practice",
-    listening: "Listening… speak now",
+    idle: "Tap to begin",
+    listening: "Listening…",
     processing: "Thinking…",
     speaking: "Tutor speaking…",
   };
 
   return (
-    <div className="flex flex-col items-center gap-2 min-w-[120px]">
-      <button
-        type="button"
-        onClick={handleToggle}
-        disabled={disabled && !active}
-        className={`relative p-4 rounded-full transition-all shadow-md ${
-          active
-            ? phase === "listening"
-              ? "bg-red-500 text-white animate-pulse ring-4 ring-red-200"
-              : "bg-ielts-gold text-ielts-navy ring-4 ring-amber-200"
-            : "bg-ielts-blue text-white hover:bg-ielts-navy"
-        } disabled:opacity-50`}
-        title={active ? "Stop voice practice" : "Start voice conversation"}
-      >
-        {phase === "processing" ? (
-          <Loader2 className="w-6 h-6 animate-spin" />
-        ) : active ? (
-          <MicOff className="w-6 h-6" />
-        ) : (
-          <Mic className="w-6 h-6" />
-        )}
+    <div className="flex flex-col items-center gap-3 min-w-[140px]">
+      <div className="relative flex items-center justify-center">
         {active && phase === "listening" && (
-          <span className="absolute -top-1 -right-1 flex h-3 w-3">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500" />
-          </span>
+          <span
+            className="absolute inset-0 rounded-full bg-red-400/30 animate-pulse-ring"
+            style={{ transform: `scale(${1 + level * 0.4})` }}
+          />
         )}
-      </button>
-
-      <div className="flex items-center gap-1 text-xs text-slate-600 text-center">
-        {active && <Radio className="w-3 h-3 text-red-500 shrink-0" />}
-        <span>{active ? phaseLabel[phase] : phaseLabel.idle}</span>
+        <button
+          type="button"
+          onClick={handleToggle}
+          disabled={disabled && !active}
+          className={clsx(
+            "relative z-10 flex h-16 w-16 items-center justify-center rounded-full transition-all shadow-lift",
+            active
+              ? phase === "listening"
+                ? "bg-red-500 text-white"
+                : phase === "speaking"
+                  ? "bg-gold text-ink"
+                  : "bg-sea text-white"
+              : "bg-ink text-white hover:bg-ink-soft",
+            "disabled:opacity-50"
+          )}
+          title={active ? "Stop live dialogue" : "Start live dialogue"}
+        >
+          {phase === "processing" ? (
+            <Loader2 className="w-7 h-7 animate-spin" />
+          ) : active ? (
+            <MicOff className="w-7 h-7" />
+          ) : (
+            <Mic className="w-7 h-7" />
+          )}
+        </button>
       </div>
 
-      {active && (
-        <p className="text-[10px] text-slate-400 text-center leading-tight">
-          Tap mic again to stop
+      <div className="text-center">
+        <p className="text-xs font-semibold text-ink">
+          {active ? phaseLabel[phase] : phaseLabel.idle}
         </p>
-      )}
+        {active && (
+          <p className="text-[10px] text-ink-muted mt-0.5">Tap again to stop</p>
+        )}
+      </div>
 
       {error && (
-        <p className="text-xs text-red-600 text-center max-w-[160px] leading-tight">
+        <p className="text-xs text-red-600 text-center max-w-[180px] leading-tight">
           {error}
         </p>
       )}
