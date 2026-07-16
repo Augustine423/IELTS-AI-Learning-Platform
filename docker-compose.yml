@@ -1,11 +1,11 @@
-# Separate Ollama images (one model each) + backend/frontend.
-# Shared Dockerfile target `ollama-base` is cached across model builds.
+# Pull-only stack — uses images already built & pushed to Docker Hub by GitHub Actions.
+# No local Docker builds.
 #
 # Quick (llama3.2 only):
-#   docker compose up --build
+#   docker compose pull && docker compose up
 #
 # All skill models:
-#   docker compose --profile full up --build
+#   docker compose --profile full pull && docker compose --profile full up
 
 x-ollama-health: &ollama-health
   test: ["CMD", "curl", "-sf", "http://127.0.0.1:11434/api/tags"]
@@ -14,21 +14,13 @@ x-ollama-health: &ollama-health
   retries: 12
   start_period: 45s
 
-x-ollama-build: &ollama-build
-  context: .
-  dockerfile: docker/ollama/Dockerfile
-  target: ollama-model
-  args:
-    OFFLINE_BUILD: ${OFFLINE_BUILD:-0}
+x-pull: &pull-always
+  pull_policy: always
 
 services:
   # --- Listening default / fallback (always on) ---
   ollama-llama32:
-    build:
-      <<: *ollama-build
-      args:
-        BAKE_MODEL: llama3.2
-        OFFLINE_BUILD: ${OFFLINE_BUILD:-0}
+    <<: *pull-always
     image: kyawzayarsoe/ielts-ai-ollama-llama32:latest
     ports:
       - "11434:11434"
@@ -37,12 +29,8 @@ services:
 
   # --- Speaking (profile: full) ---
   ollama-llama31:
+    <<: *pull-always
     profiles: ["full"]
-    build:
-      <<: *ollama-build
-      args:
-        BAKE_MODEL: llama3.1:8b
-        OFFLINE_BUILD: ${OFFLINE_BUILD:-0}
     image: kyawzayarsoe/ielts-ai-ollama-llama31:latest
     ports:
       - "11435:11434"
@@ -51,12 +39,8 @@ services:
 
   # --- Writing (profile: full) ---
   ollama-qwen25:
+    <<: *pull-always
     profiles: ["full"]
-    build:
-      <<: *ollama-build
-      args:
-        BAKE_MODEL: qwen2.5:7b
-        OFFLINE_BUILD: ${OFFLINE_BUILD:-0}
     image: kyawzayarsoe/ielts-ai-ollama-qwen25:latest
     ports:
       - "11436:11434"
@@ -65,12 +49,8 @@ services:
 
   # --- Reading (profile: full) ---
   ollama-gemma2:
+    <<: *pull-always
     profiles: ["full"]
-    build:
-      <<: *ollama-build
-      args:
-        BAKE_MODEL: gemma2:9b
-        OFFLINE_BUILD: ${OFFLINE_BUILD:-0}
     image: kyawzayarsoe/ielts-ai-ollama-gemma2:latest
     ports:
       - "11437:11434"
@@ -78,8 +58,8 @@ services:
     restart: unless-stopped
 
   backend:
+    <<: *pull-always
     image: kyawzayarsoe/ielts-ai-backend:latest
-    pull_policy: always
     ports:
       - "8000:8000"
     environment:
@@ -101,8 +81,8 @@ services:
       start_period: 180s
 
   frontend:
+    <<: *pull-always
     image: kyawzayarsoe/ielts-ai-frontend:latest
-    pull_policy: always
     ports:
       - "3000:3000"
     environment:

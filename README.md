@@ -15,7 +15,7 @@ Browser → Frontend (:3000) → Backend API (:8000)
 Separate **Ubuntu + Ollama** images (not the official `ollama/ollama` image) — one model per image so builds stay smaller.
 
 > **Quick start:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) → `.\scripts\start.ps1` → http://localhost:3000  
-> Default = `llama3.2` only. All skill models: `.\scripts\start.ps1 --full`
+> Compose **only pulls** images from Docker Hub (built by GitHub Actions). Default = `llama3.2`. All models: `.\scripts\start.ps1 --full`
 
 ---
 
@@ -23,33 +23,52 @@ Separate **Ubuntu + Ollama** images (not the official `ollama/ollama` image) —
 
 | Need | Notes |
 |------|--------|
-| [Docker Desktop](https://www.docker.com/products/docker-desktop/) | Recommended path |
-| ~8 GB RAM | More RAM if you run `--full` (several models) |
-| Disk | ~3 GB for default; ~20 GB if you build all four model images |
-| Internet | Only for the **first** image build (or offline GGUF bake) |
+| [Docker Desktop](https://www.docker.com/products/docker-desktop/) | Required |
+| RAM / disk | See **warning** below — Ollama images are large |
+| Internet | To **pull** images from Docker Hub (first run) |
 
 No host Ollama install required.
 
+> **Warning — image size & server RAM**  
+> Backend (~0.4 GB) and frontend (~0.07 GB) are small. **Ollama model images are ~3.5–6.5 GB each** on Docker Hub because each image embeds a full local LLM. That is expected, not a bug.  
+>  
+> | Deploy | vCPU | RAM | Disk | Notes |
+> |--------|------|-----|------|--------|
+> | **Docker minimum** (`compose up`) | 4 | **16 GB** | 40 GB | llama3.2 only |
+> | **Docker comfortable** | 8 | **32 GB** | 80 GB | Recommended default VPS |
+> | **Docker full** (`--full`) | 8–16 | **48–64 GB** | 120 GB | All 4 model containers |
+> | **K8s minimum** | 4–8 / node | **16–32 GB** free | — | `kubectl apply -k k8s/` |
+> | **K8s full** | 8+ | **~48–64 GB+** cluster | — | Also `kubectl apply -f k8s/ollama-full.yaml` |
+>  
+> Each running Ollama pod/container holds its model in RAM (~4–12 GB). Do **not** run `--full` / `ollama-full.yaml` on a 8–16 GB machine.  
+> Full sizing notes: [k8s/SIZING.md](k8s/SIZING.md).
+
 ---
 
-## Quick start (Docker)
+## Quick start (Docker — pull from Hub)
+
+Images are built & pushed by GitHub Actions. Local Compose does **not** build.
 
 ### Default (small — `llama3.2` only)
 
 **Windows**
 ```powershell
-copy .env.example .env
 .\scripts\start.ps1
 ```
 
 **Linux / macOS**
 ```bash
-cp .env.example .env
-chmod +x scripts/*.sh docker/ollama/*.sh
+chmod +x scripts/*.sh
 ./scripts/start.sh
 ```
 
-### Full stack (all four models — auto skill routing)
+Same as:
+```bash
+docker compose pull
+docker compose up
+```
+
+### Full stack (all four models)
 
 ```powershell
 .\scripts\start.ps1 --full
@@ -57,6 +76,9 @@ chmod +x scripts/*.sh docker/ollama/*.sh
 
 ```bash
 ./scripts/start.sh --full
+# or:
+docker compose --profile full pull
+docker compose --profile full up
 ```
 
 | Service | URL |
@@ -100,21 +122,11 @@ Web enrich (optional checkbox) adds DuckDuckGo study tips to the prompt. Needs n
 
 ---
 
-## Offline model bake
+## Offline / custom image builds (optional)
 
-If `ollama pull` is blocked during image build, place a matching `.gguf` under `models/` (e.g. `llama3.2.gguf`) then:
+Normal use is **pull from Hub**. Dockerfiles remain for CI and local rebuilds only.
 
-```powershell
-$env:OFFLINE_BUILD=1
-.\scripts\build-ollama.ps1 -Target llama32 -Offline
-.\scripts\start.ps1
-```
-
-Or use the helper (stages GGUF + rebuilds):
-
-```powershell
-.\scripts\import-model-offline.ps1 -GgufPath "C:\Downloads\Llama-3.2-3B-Instruct-Q4_K_M.gguf"
-```
+If you must bake offline (GGUF), use `scripts/build-ollama.*` / `import-model-offline.*` — that is separate from the default Compose pull flow.
 
 ---
 
@@ -144,7 +156,6 @@ Each skill page: **scenario picker** → **Chat** or **Live dialogue** → optio
 
 | File | Purpose |
 |------|---------|
-| `.env` | `OFFLINE_BUILD` for image builds |
 | `docker/config.yaml` | Skill→model map + per-model **endpoints** (Compose) |
 | `backend/config.yaml` | Same for local dev (host ports 11434–11437) |
 | `backend/.env` | Optional paid API keys |
@@ -216,7 +227,7 @@ Open http://localhost:3000
 ├── scripts/                 # start / build-ollama / import-model-offline
 ├── k8s/                     # Kubernetes (llama32 by default)
 ├── .github/workflows/       # Build & push all images to Docker Hub
-├── docker-compose.yml       # Separate Ollama services + profile full
+├── docker-compose.yml       # Pull-only from Docker Hub (+ profile full)
 └── .env.example
 ```
 
@@ -224,32 +235,35 @@ Open http://localhost:3000
 
 ## Docker images & Compose
 
-Multi-stage file: `docker/ollama/Dockerfile`
+`docker-compose.yml` is **pull-only** (`pull_policy: always`) — no local `build:`.
 
-| Target | Role |
-|--------|------|
-| `ollama-base` | Ubuntu + Ollama binary from **GitHub Releases** (no `install.sh`; temp files deleted) |
-| `ollama-model` | Base + **one** baked model (`BAKE_MODEL`), bake scripts removed |
-
-Install uses `https://github.com/ollama/ollama/releases/.../ollama-linux-*.tar.zst` (pin with `OLLAMA_VERSION`), not `ollama.com/install.sh`.
+| Image on Docker Hub | Role |
+|---------------------|------|
+| `kyawzayarsoe/ielts-ai-ollama-llama32` | `llama3.2` |
+| `kyawzayarsoe/ielts-ai-ollama-llama31` | `llama3.1:8b` |
+| `kyawzayarsoe/ielts-ai-ollama-qwen25` | `qwen2.5:7b` |
+| `kyawzayarsoe/ielts-ai-ollama-gemma2` | `gemma2:9b` |
+| `kyawzayarsoe/ielts-ai-backend` | FastAPI + Whisper |
+| `kyawzayarsoe/ielts-ai-frontend` | Next.js |
 
 ```bash
-docker compose up --build                    # llama3.2 only
-docker compose --profile full up --build     # all four model containers
-.\scripts\build-ollama.ps1 -Target all       # rebuild all model images
-.\scripts\build-ollama.ps1 -Target qwen25    # rebuild writing image only
+docker compose pull && docker compose up
+docker compose --profile full pull && docker compose --profile full up
 ```
 
-Also: `ielts-ai-backend`, `ielts-ai-frontend`.
+CI builds from `docker/ollama/Dockerfile` and pushes these tags. Compose only pulls them.
+
+**Auto routing:** listening→llama3.2, speaking→llama3.1:8b, reading→gemma2:9b, writing→qwen2.5:7b.  
+**Manual:** UI model picker. Missing containers fall back to `llama3.2`.
 
 ### Troubleshooting
 
 | Issue | Fix |
 |-------|-----|
-| First start slow | Model bake downloads once; later starts reuse the image |
-| Health degraded | `docker compose up ollama-llama32 -d` then restart backend |
-| Auto model not used | Run with `--full` so speaking/reading/writing containers exist |
-| `ollama pull` blocked | [Offline model bake](#offline-model-bake) |
+| First start slow | Large image download from Hub (once) |
+| Health degraded | `docker compose pull ollama-llama32 && docker compose up -d` |
+| Auto model not used | Run with `--full` so speaking/reading/writing images are pulled |
+| Pull fails / 404 | Confirm GitHub Actions pushed images; check Docker Hub tags |
 | Speaking STT slow | Whisper `tiny` is pre-baked in the backend image |
 
 ---
@@ -295,11 +309,19 @@ docker pull kyawzayarsoe/ielts-ai-ollama-gemma2:latest
 
 ```bash
 # Edit k8s/ingress.yaml and k8s/secret.yaml first
+
+# Minimum (frontend + backend + llama3.2)
 kubectl apply -k k8s/
+
+# Full auto skill models (needs ~48GB+ cluster RAM)
+kubectl apply -f k8s/ollama-full.yaml
+
 kubectl get pods -n ielts-ai
 ```
 
-Default manifests deploy **`ollama-llama32`**. Extra model services (`ollama-llama31`, `ollama-qwen25`, `ollama-gemma2`) can be added to match `llm.models.endpoints` in the ConfigMap.
+Hub images only (`imagePullPolicy: Always`).  
+
+> **Warning:** Full auto-skill deploy needs ~48–64 GB+ cluster RAM. See the [Requirements warning](#requirements) and [k8s/SIZING.md](k8s/SIZING.md).
 
 ---
 
@@ -307,9 +329,9 @@ Default manifests deploy **`ollama-llama32`**. Extra model services (`ollama-lla
 
 | Script | Purpose |
 |--------|---------|
-| `scripts/start.*` | Build + `docker compose up` (`--full` = all models) |
-| `scripts/build-ollama.*` | Rebuild one or all Ollama images (`-Target llama32\|qwen25\|…\|all`) |
-| `scripts/import-model-offline.*` | Stage GGUF → offline bake |
+| `scripts/start.*` | `docker compose pull` + `up` (`--full` = all models) |
+| `scripts/build-ollama.*` | Optional local rebuild (CI/dev only; not used by default start) |
+| `scripts/import-model-offline.*` | Optional offline GGUF bake for custom images |
 
 ---
 
