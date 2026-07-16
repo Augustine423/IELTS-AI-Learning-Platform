@@ -163,6 +163,8 @@ export function streamChat(
 
       const decoder = new TextDecoder();
       let buffer = "";
+      let sawContent = false;
+      let streamError: string | null = null;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -173,17 +175,37 @@ export function streamChat(
         buffer = lines.pop() || "";
 
         for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              if (data.model) lastModel = data.model;
-              if (data.content) onChunk(data.content);
-              if (data.error) onError(data.error);
-            } catch {
-              // skip malformed SSE lines
+          if (!line.startsWith("data: ")) continue;
+          const raw = line.slice(6).trim();
+          if (!raw) continue;
+
+          try {
+            const data = JSON.parse(raw);
+            if (data.model) lastModel = data.model;
+            if (typeof data.content === "string" && data.content) {
+              sawContent = true;
+              onChunk(data.content);
+            }
+            if (data.error) streamError = String(data.error);
+          } catch {
+            // Plain-text SSE fallback
+            if (raw && raw !== "[DONE]") {
+              sawContent = true;
+              onChunk(raw);
             }
           }
         }
+      }
+
+      if (streamError) {
+        onError(streamError);
+        return;
+      }
+      if (!sawContent) {
+        onError(
+          "No reply from the model. Set GROQ_API_KEY in .env (free at console.groq.com), then run: docker compose up -d"
+        );
+        return;
       }
       onDone({ model: lastModel });
     })

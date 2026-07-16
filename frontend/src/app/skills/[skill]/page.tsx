@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ChatInterface } from "@/components/ChatInterface";
 import { VoiceSelector } from "@/components/VoiceSelector";
+import { ApiKeyBanner } from "@/components/ApiKeyBanner";
 import { Skill } from "@/lib/api";
 import { SKILL_META } from "@/lib/scenarios";
 import { useVoicePreferences } from "@/lib/useVoicePreferences";
@@ -58,6 +59,8 @@ export default function SkillPage({
       <div className="md:hidden px-4 py-3 border-b border-ink/8 bg-white/40">
         <VoiceSelector preferences={voicePrefs} onChange={setVoicePrefs} compact />
       </div>
+
+      <ApiKeyBanner />
 
       <main className="flex-1 max-w-5xl mx-auto w-full">
         <ChatInterface skill={validSkill} voicePreferences={voicePrefs} />

@@ -63,14 +63,24 @@ async def chat_stream(request: ChatRequest):
 
     async def event_generator():
         try:
+            if not await llm.is_available():
+                yield {
+                    "event": "error",
+                    "data": json.dumps(
+                        {
+                            "error": "No LLM API key. Set GROQ_API_KEY (free at console.groq.com) or OPENAI_API_KEY in .env, then restart: docker compose up -d"
+                        }
+                    ),
+                }
+                return
             yield {
                 "event": "meta",
                 "data": json.dumps({"model": model, "model_mode": request.model_mode.value}),
             }
             async for chunk in llm.stream(messages, system_prompt, model=model):
-                yield {"event": "message", "data": chunk}
-            yield {"event": "done", "data": ""}
+                yield {"event": "message", "data": json.dumps({"content": chunk})}
+            yield {"event": "done", "data": json.dumps({})}
         except Exception as e:
-            yield {"event": "error", "data": str(e)}
+            yield {"event": "error", "data": json.dumps({"error": str(e)})}
 
     return EventSourceResponse(event_generator())
