@@ -12,7 +12,7 @@
 Notes:
 - Image pull size alone: ~4 GB (min) or ~22 GB (full) before runtime RAM.
 - Each Ollama container keeps its model in RAM while running (~4–12 GB each).
-- Backend ~0.4 GB image / ~1–2 GB RAM (Whisper). Frontend is tiny.
+- Backend ~slim image / ~1–2 GB RAM (Whisper). Frontend is alpine + Node only (browse via host port 80).
 
 Example VPS: **8 vCPU / 32 GB RAM / 80 GB** for default; **16 vCPU / 64 GB** for full.
 

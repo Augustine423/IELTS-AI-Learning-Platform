@@ -3,7 +3,7 @@
 Offline-first IELTS tutor for **Listening**, **Speaking**, **Reading**, and **Writing** — situational dialogues, live voice practice, and UK / US / Australian accents.
 
 ```
-Browser → Frontend (:3000) → Backend API (:8000)
+Browser → Frontend (:80) → Backend API (:8000)
                                   │
           ┌───────────────────────┼───────────────────────┐
           ▼                       ▼                       ▼
@@ -14,7 +14,7 @@ Browser → Frontend (:3000) → Backend API (:8000)
 
 Separate **Ubuntu + Ollama** images (not the official `ollama/ollama` image) — one model per image so builds stay smaller.
 
-> **Quick start:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) → `.\scripts\start.ps1` → http://localhost:3000  
+> **Quick start:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) → `.\scripts\start.ps1` → http://localhost  
 > Compose **only pulls** images from Docker Hub (built by GitHub Actions). Default = `llama3.2`. All models: `.\scripts\start.ps1 --full`
 
 ---
@@ -30,7 +30,7 @@ Separate **Ubuntu + Ollama** images (not the official `ollama/ollama` image) —
 No host Ollama install required.
 
 > **Warning — image size & server RAM**  
-> Backend (~0.4 GB) and frontend (~0.07 GB) are small. **Ollama model images are ~3.5–6.5 GB each** on Docker Hub because each image embeds a full local LLM. That is expected, not a bug.  
+> Backend (~slim FastAPI) and frontend (~alpine Node) are small. **Ollama model images are still multi-GB each** because each embeds a full local LLM — that is expected. CPU-only Ollama builds strip GPU runners (`INCLUDE_GPU=0`) to avoid shipping CUDA/ROCm.  
 >  
 > | Deploy | vCPU | RAM | Disk | Notes |
 > |--------|------|-----|------|--------|
@@ -83,7 +83,7 @@ docker compose --profile full up
 
 | Service | URL |
 |---------|-----|
-| App | http://localhost:3000 |
+| App | http://localhost |
 | API | http://localhost:8000 |
 | API docs | http://localhost:8000/docs |
 | Ollama `llama3.2` | http://localhost:11434 |
@@ -211,7 +211,7 @@ cp .env.local.example .env.local
 npm run dev
 ```
 
-Open http://localhost:3000
+Open http://localhost for Docker / container deploys, or http://localhost:3000 when running `npm run dev`
 
 ---
 
@@ -252,6 +252,19 @@ docker compose --profile full pull && docker compose --profile full up
 ```
 
 CI builds from `docker/ollama/Dockerfile` and pushes these tags. Compose only pulls them.
+
+**Image size notes (slim builds):**
+- Frontend: alpine + Node binary only (no npm/yarn); container listens on **8080**, host/k8s browse on **:80**
+- Backend: venv multi-stage + cleaned caches; Whisper `tiny` pre-baked
+- Ollama: CPU-only runners by default (`INCLUDE_GPU=0`); bake stage discarded; weights + binary only in final image
+- Model images are still multi-GB because of LLM weights — that part cannot be shrunk without a smaller model
+
+**SBOM:** each image embeds SPDX at `/sbom/sbom.spdx.json`. CI also attaches BuildKit SBOM attestations (`--sbom=true`).
+
+```bash
+# Inspect embedded SBOM inside a running/local image
+docker run --rm --entrypoint cat kyawzayarsoe/ielts-ai-frontend:latest /sbom/sbom.spdx.json | head
+```
 
 **Auto routing:** listening→llama3.2, speaking→llama3.1:8b, reading→gemma2:9b, writing→qwen2.5:7b.  
 **Manual:** UI model picker. Missing containers fall back to `llama3.2`.

@@ -13,3 +13,13 @@ npm-debug.log*
 coverage/
 .vscode/
 .idea/
+**/*.tsbuildinfo
+**/*.map
+.eslintrc*
+eslint.config.*
+jest.config.*
+__tests__/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx

@@ -83,8 +83,11 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=backend
           cache-to: type=gha,mode=max,scope=backend
-          provenance: false
-          sbom: false
+          provenance: mode=min
+          sbom: true
+          build-args: |
+            BUILDKIT_SBOM_SCAN_CONTEXT=true
+            BUILDKIT_SBOM_SCAN_STAGE=true
 
   # ---------------------------------------------------------------------------
   # Frontend — Next.js
@@ -138,8 +141,11 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
-          provenance: false
-          sbom: false
+          provenance: mode=min
+          sbom: true
+          build-args: |
+            BUILDKIT_SBOM_SCAN_CONTEXT=true
+            BUILDKIT_SBOM_SCAN_STAGE=true
 
   # ---------------------------------------------------------------------------
   # Ollama — separate images (one model each, shared multi-stage base)
@@ -225,12 +231,15 @@ jobs:
             BAKE_MODEL=${{ matrix.model }}
             OLLAMA_VERSION=v0.32.0
             OFFLINE_BUILD=0
+            INCLUDE_GPU=0
+            BUILDKIT_SBOM_SCAN_CONTEXT=true
+            BUILDKIT_SBOM_SCAN_STAGE=true
           cache-from: |
             type=registry,ref=${{ env.DOCKERHUB_USERNAME }}/ielts-ai-ollama-${{ matrix.image_suffix }}:buildcache
             type=registry,ref=${{ env.DOCKERHUB_USERNAME }}/ielts-ai-ollama-base:buildcache
           cache-to: ${{ env.PUSH_IMAGES == 'true' && format('type=registry,ref={0}/ielts-ai-ollama-{1}:buildcache,mode=max', env.DOCKERHUB_USERNAME, matrix.image_suffix) || '' }}
-          provenance: false
-          sbom: false
+          provenance: mode=min
+          sbom: true
 
   # ---------------------------------------------------------------------------
   # Summary

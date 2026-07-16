@@ -84,15 +84,23 @@ services:
     <<: *pull-always
     image: kyawzayarsoe/ielts-ai-frontend:latest
     ports:
-      - "3000:3000"
+      # Host :80 → container :8080 (non-root; browse http://localhost)
+      - "80:8080"
     environment:
       - NODE_ENV=production
+      - PORT=8080
       - API_INTERNAL_URL=http://backend:8000
     depends_on:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:8080/',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))",
+        ]
       interval: 30s
       timeout: 5s
       retries: 3
