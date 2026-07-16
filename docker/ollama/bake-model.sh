@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Bake one or more local Ollama models into the image (pull or offline GGUF).
+# Bake one local Ollama model into the image (pull from registry or offline GGUF).
+# Leaves only model weights under $OLLAMA_MODELS — no source / temp clutter.
 set -euo pipefail
 
-# Comma-separated list — use BAKE_MODELS (not OLLAMA_MODELS; that is Ollama's data dir).
 MODELS_CSV="${BAKE_MODELS:-${OLLAMA_BAKE_MODELS:-${OLLAMA_MODEL:-llama3.2}}}"
 OFFLINE_BUILD="${OFFLINE_BUILD:-0}"
 MODELS_DIR="/tmp/models"
+PULL_RETRIES="${PULL_RETRIES:-5}"
 
 IFS=',' read -r -a MODELS <<< "$MODELS_CSV"
 
@@ -32,7 +33,7 @@ trap cleanup EXIT
 
 echo "==> Waiting for Ollama API..."
 ready=0
-for _ in $(seq 1 90); do
+for _ in $(seq 1 120); do
   if curl -sf "http://127.0.0.1:11434/api/tags" >/dev/null 2>&1; then
     ready=1
     break
@@ -45,15 +46,28 @@ if [[ "$ready" -ne 1 ]]; then
   exit 1
 fi
 
+pull_with_retry() {
+  local MODEL="$1"
+  local attempt=1
+  while [[ "$attempt" -le "$PULL_RETRIES" ]]; do
+    echo "==> Pulling model: $MODEL (attempt ${attempt}/${PULL_RETRIES})"
+    if ollama pull "$MODEL"; then
+      return 0
+    fi
+    echo "    Pull failed; retrying in $((attempt * 5))s…"
+    sleep $((attempt * 5))
+    attempt=$((attempt + 1))
+  done
+  return 1
+}
+
 bake_one() {
   local MODEL="$1"
   local SAFE_NAME GGUF
 
-  # Prefer exact-name GGUF: models/llama3.2.gguf or models/qwen2.5-7b.gguf
   SAFE_NAME="$(echo "$MODEL" | tr ':/' '--')"
   GGUF="$(find "$MODELS_DIR" -maxdepth 1 -type f \( -iname "${SAFE_NAME}.gguf" -o -iname "${MODEL}.gguf" \) 2>/dev/null | head -n 1 || true)"
 
-  # Single-GGUF offline fallback when only one model requested
   if [[ -z "$GGUF" && "$OFFLINE_BUILD" == "1" && ${#MODELS[@]} -eq 1 ]]; then
     GGUF="$(find "$MODELS_DIR" -maxdepth 1 -type f -name '*.gguf' 2>/dev/null | head -n 1 || true)"
   fi
@@ -69,8 +83,10 @@ bake_one() {
     echo "       Place ${SAFE_NAME}.gguf (or ${MODEL}.gguf) then rebuild."
     exit 1
   else
-    echo "==> Pulling model: $MODEL"
-    ollama pull "$MODEL"
+    pull_with_retry "$MODEL" || {
+      echo "ERROR: Failed to pull '$MODEL' after ${PULL_RETRIES} attempts."
+      exit 1
+    }
   fi
 
   local SIZE
@@ -90,4 +106,4 @@ done
 
 echo "==> Installed models:"
 ollama list
-echo "==> All requested models baked."
+echo "==> Bake complete (weights only under OLLAMA_MODELS)."

@@ -228,8 +228,10 @@ Multi-stage file: `docker/ollama/Dockerfile`
 
 | Target | Role |
 |--------|------|
-| `ollama-base` | Ubuntu + Ollama binary (shared cache) |
-| `ollama-model` | Base + **one** baked model (`BAKE_MODEL`) |
+| `ollama-base` | Ubuntu + Ollama binary from **GitHub Releases** (no `install.sh`; temp files deleted) |
+| `ollama-model` | Base + **one** baked model (`BAKE_MODEL`), bake scripts removed |
+
+Install uses `https://github.com/ollama/ollama/releases/.../ollama-linux-*.tar.zst` (pin with `OLLAMA_VERSION`), not `ollama.com/install.sh`.
 
 ```bash
 docker compose up --build                    # llama3.2 only
