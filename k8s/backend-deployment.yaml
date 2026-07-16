@@ -26,12 +26,18 @@ spec:
             - name: http
               containerPort: 8000
               protocol: TCP
-          env:
-            - name: OLLAMA_BASE_URL
-              value: http://ollama-llama32.ielts-ai.svc.cluster.local:11434
           envFrom:
             - secretRef:
                 name: ielts-ai-secrets
+          env:
+            - name: HOME
+              value: /app
+            - name: HF_HOME
+              value: /app/.cache/huggingface
+            - name: WHISPER_CACHE_DIR
+              value: /app/.cache/whisper
+            - name: TMPDIR
+              value: /app/tmp
           volumeMounts:
             - name: config
               mountPath: /app/config.yaml

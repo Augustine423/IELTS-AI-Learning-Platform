@@ -6,16 +6,11 @@ import {
   ChatMessage,
   VoicePreferences,
   streamChat,
-  ModelPreferences,
 } from "@/lib/api";
 import { SCENARIOS, SKILL_META, Scenario } from "@/lib/scenarios";
 import { VoiceConversation } from "./VoiceConversation";
 import { LiveKitVoiceRoom } from "./LiveKitVoiceRoom";
 import { AudioPlayer } from "./AudioPlayer";
-import {
-  ModelSelector,
-  defaultModelPreferences,
-} from "./ModelSelector";
 import {
   Send,
   Globe,
@@ -39,10 +34,6 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
   const [loading, setLoading] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const [useWebSearch, setUseWebSearch] = useState(skill === "speaking");
-  const [modelPrefs, setModelPrefs] = useState<ModelPreferences>(
-    defaultModelPreferences("auto")
-  );
-  const [activeModel, setActiveModel] = useState<string | null>(null);
   const [mode, setMode] = useState<PracticeMode>("livekit");
   const [activeScenario, setActiveScenario] = useState<Scenario | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -61,8 +52,6 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
   function chatOptions() {
     return {
       useWebSearch,
-      modelMode: modelPrefs.mode,
-      model: modelPrefs.model,
     };
   }
 
@@ -89,7 +78,6 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
         setStreamingText(accumulated);
       },
       (meta) => {
-        if (meta?.model) setActiveModel(meta.model);
         setMessages((prev) => [
           ...prev,
           { role: "assistant", content: accumulated },
@@ -102,7 +90,7 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
           ...prev,
           {
             role: "assistant",
-            content: `Something went wrong: ${err}\n\nTip: start models with \`docker compose --profile full up\` or use Auto + llama3.2.`,
+            content: `Something went wrong: ${err}\n\nTip: set GROQ_API_KEY (or OPENAI_API_KEY) in .env and restart backend.`,
           },
         ]);
         setStreamingText("");
@@ -196,15 +184,6 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
         </div>
       </div>
 
-      <div className="px-4 pb-2 max-w-sm">
-        <ModelSelector
-          skill={skill}
-          value={modelPrefs}
-          onChange={setModelPrefs}
-          activeModel={activeModel}
-        />
-      </div>
-
       {/* Messages / scenarios */}
       <div className="flex-1 overflow-y-auto px-4 py-2 space-y-4">
         {empty && (
@@ -217,7 +196,7 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
               <p className="text-sm text-ink-muted mt-2 leading-relaxed">
                 Pick a situation to start a natural dialogue, or open{" "}
                 <strong className="text-ink">LiveKit voice</strong> for
-                realtime tutoring on all four skills (no big Ollama image required).
+                realtime tutoring on all four skills.
               </p>
             </div>
 
@@ -315,9 +294,9 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
               disabled={loading}
             />
             <p className="text-xs text-ink-muted mt-3 leading-relaxed">
-              Uses LiveKit Cloud + your Groq/OpenAI keys. Works for Listening,
-              Speaking, Reading, and Writing without pulling multi-GB Ollama
-              models. Pick a scenario above first (optional), then Start LiveKit.
+              Uses LiveKit Cloud + Groq/OpenAI. Works for Listening, Speaking,
+              Reading, and Writing. Pick a scenario above first (optional), then
+              Start LiveKit.
             </p>
           </div>
         ) : mode === "voice" ? (
@@ -329,15 +308,13 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
               onMessagesChange={setMessages}
               disabled={loading}
               useWebSearch={useWebSearch}
-              modelPrefs={modelPrefs}
-              onModelUsed={setActiveModel}
               onScenarioStart={(s) => setActiveScenario(s)}
             />
             <div className="flex-1 text-center sm:text-left">
               <p className="text-sm font-semibold text-ink">Classic mic mode</p>
               <p className="text-xs text-ink-muted mt-1 leading-relaxed">
-                Local STT → chat API → Edge TTS (uses Ollama/backend). Prefer
-                LiveKit voice when you want a lighter server.
+                Local Whisper STT → Groq/OpenAI chat → Edge TTS. Prefer LiveKit
+                voice for lower latency.
               </p>
               <label className="mt-3 inline-flex items-center gap-2 text-xs text-ink-muted cursor-pointer select-none">
                 <input

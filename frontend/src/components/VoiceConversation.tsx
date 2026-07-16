@@ -22,8 +22,6 @@ interface VoiceConversationProps {
   onMessagesChange: (messages: ChatMessage[]) => void;
   disabled?: boolean;
   useWebSearch?: boolean;
-  modelPrefs?: { mode: "auto" | "manual"; model: string | null };
-  onModelUsed?: (model: string) => void;
   onScenarioStart?: (scenario: Scenario) => void;
 }
 
@@ -57,8 +55,6 @@ export function VoiceConversation({
   onMessagesChange,
   disabled,
   useWebSearch = true,
-  modelPrefs = { mode: "auto", model: null },
-  onModelUsed,
   onScenarioStart,
 }: VoiceConversationProps) {
   const [active, setActive] = useState(false);
@@ -79,7 +75,6 @@ export function VoiceConversation({
   const mimeTypeRef = useRef("");
   const stopAudioRef = useRef<(() => void) | null>(null);
   const webSearchRef = useRef(useWebSearch);
-  const modelPrefsRef = useRef(modelPrefs);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -88,10 +83,6 @@ export function VoiceConversation({
   useEffect(() => {
     webSearchRef.current = useWebSearch;
   }, [useWebSearch]);
-
-  useEffect(() => {
-    modelPrefsRef.current = modelPrefs;
-  }, [modelPrefs]);
 
   const cleanupRecording = useCallback(() => {
     if (silenceTimerRef.current) {
@@ -123,18 +114,14 @@ export function VoiceConversation({
 
   const assistantReply = useCallback(
     async (history: ChatMessage[]) => {
-      const prefs = modelPrefsRef.current;
-      const { content: reply, model } = await sendChat(
+      const { content: reply } = await sendChat(
         skill,
         history,
         voicePreferences,
         {
           useWebSearch: webSearchRef.current,
-          modelMode: prefs.mode,
-          model: prefs.model,
         }
       );
-      if (model) onModelUsed?.(model);
       if (!activeRef.current) return null;
 
       const withReply: ChatMessage[] = [
@@ -151,7 +138,7 @@ export function VoiceConversation({
       stopAudioRef.current = null;
       return withReply;
     },
-    [skill, voicePreferences, onMessagesChange, onModelUsed]
+    [skill, voicePreferences, onMessagesChange]
   );
 
   const startListening = useCallback(async () => {

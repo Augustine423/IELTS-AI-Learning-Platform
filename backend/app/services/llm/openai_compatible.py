@@ -22,24 +22,28 @@ def _to_langchain_messages(messages: list[dict], system_prompt: str = ""):
 
 
 class OpenAICompatibleLLM(BaseLLM):
-    """Works with Groq, OpenRouter, or any OpenAI-compatible API."""
+    """Groq (default) or any OpenAI-compatible API — no Ollama."""
 
     def __init__(self):
         config = get_config()
         settings = get_settings()
         llm_cfg = config.get("llm", {})
-        self.model = llm_cfg.get("model", "llama-3.1-8b-instant")
-        self.api_key = settings.openai_api_key
-        self.base_url = settings.openai_base_url
+        self.model = llm_cfg.get("model", "llama-3.3-70b-versatile")
         self.temperature = llm_cfg.get("temperature", 0.7)
 
-    def _get_client(self) -> ChatOpenAI:
-        return ChatOpenAI(
-            model=self.model,
-            api_key=self.api_key,
-            base_url=self.base_url,
-            temperature=self.temperature,
-        )
+        groq_key = (settings.groq_api_key or "").strip()
+        openai_key = (settings.openai_api_key or "").strip()
+        base = (settings.openai_base_url or "").strip()
+
+        if groq_key:
+            self.api_key = groq_key
+            self.base_url = "https://api.groq.com/openai/v1"
+        elif openai_key:
+            self.api_key = openai_key
+            self.base_url = base or "https://api.openai.com/v1"
+        else:
+            self.api_key = ""
+            self.base_url = base or "https://api.groq.com/openai/v1"
 
     async def is_available(self) -> bool:
         return bool(self.api_key)
@@ -50,6 +54,8 @@ class OpenAICompatibleLLM(BaseLLM):
         system_prompt: str = "",
         model: str | None = None,
     ) -> str:
+        if not self.api_key:
+            raise RuntimeError("Set GROQ_API_KEY or OPENAI_API_KEY for chat.")
         client = ChatOpenAI(
             model=model or self.model,
             api_key=self.api_key,
@@ -66,6 +72,8 @@ class OpenAICompatibleLLM(BaseLLM):
         system_prompt: str = "",
         model: str | None = None,
     ) -> AsyncIterator[str]:
+        if not self.api_key:
+            raise RuntimeError("Set GROQ_API_KEY or OPENAI_API_KEY for chat.")
         client = ChatOpenAI(
             model=model or self.model,
             api_key=self.api_key,

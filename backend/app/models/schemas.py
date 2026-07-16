@@ -84,18 +84,14 @@ class ProviderConfig(BaseModel):
     tts_provider: str
     available_accents: list[str]
     available_genders: list[str]
-    model_catalog: list[str] = Field(default_factory=list)
-    models_by_skill: dict[str, str] = Field(default_factory=dict)
-    model_endpoints: dict[str, str] = Field(default_factory=dict)
-    default_model_mode: str = "auto"
+    livekit_enabled: bool = True
 
 
 class HealthResponse(BaseModel):
     status: str
     llm_provider: str
     llm_model: str
-    ollama_available: bool
-    models_installed: list[str] = Field(default_factory=list)
+    llm_available: bool = False
     models_by_skill: dict[str, str] = Field(default_factory=dict)
     livekit_configured: bool = False
 

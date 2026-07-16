@@ -10,12 +10,5 @@
 **/*.pyc
 **/*.log
 **/*.tsbuildinfo
-frontend
-backend
-k8s
-scripts
-README.md
-docker-compose.yml
-docker/config.yaml
 .env
 *.md

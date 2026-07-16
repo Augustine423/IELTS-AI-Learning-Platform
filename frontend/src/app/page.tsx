@@ -11,7 +11,8 @@ import { MessageCircle, Sparkles, Waves } from "lucide-react";
 export default function HomePage() {
   const [skills, setSkills] = useState<SkillInfo[]>([]);
   const [health, setHealth] = useState<{
-    ollama_available: boolean;
+    llm_available: boolean;
+    livekit_configured?: boolean;
     llm_model: string;
     llm_provider: string;
   } | null>(null);
@@ -35,7 +36,7 @@ export default function HomePage() {
         />
         <div className="relative max-w-6xl mx-auto px-6 pt-14 pb-16 md:pt-20 md:pb-24">
           <p className="animate-fade-up text-gold-soft text-sm font-semibold tracking-[0.2em] uppercase mb-4">
-            Offline · Conversational · Exam-ready
+            LiveKit · Conversational · Exam-ready
           </p>
           <h1 className="brand-mark animate-fade-up text-5xl md:text-7xl text-white leading-[1.05] max-w-3xl">
             IELTS AI
@@ -75,12 +76,16 @@ export default function HomePage() {
             >
               <span
                 className={`h-2 w-2 rounded-full ${
-                  health.ollama_available ? "bg-emerald-400" : "bg-amber-400"
+                  health.livekit_configured || health.llm_available
+                    ? "bg-emerald-400"
+                    : "bg-amber-400"
                 }`}
               />
-              {health.ollama_available
-                ? `Model ready · ${health.llm_model}`
-                : "Ollama offline — run scripts/start.ps1 to bake & start"}
+              {health.livekit_configured
+                ? `LiveKit ready · chat ${health.llm_provider}/${health.llm_model}`
+                : health.llm_available
+                  ? `Chat ready · ${health.llm_model}`
+                  : "Add LIVEKIT_* and GROQ_API_KEY to .env"}
             </div>
           )}
         </div>
@@ -97,7 +102,8 @@ export default function HomePage() {
                 How it works
               </div>
               Pick a skill, choose a <strong className="text-ink">situation</strong>, then
-              chat or tap the mic for hands-free dialogue. Accent applies to TTS
+              use <strong className="text-ink">LiveKit voice</strong> or chat. Accent
+              applies to the tutor voice (UK / US / AU).
               replies.
             </div>
           </aside>

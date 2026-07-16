@@ -3,25 +3,23 @@ kind: Kustomization
 
 namespace: ielts-ai
 
-# Minimum stack: frontend + backend + llama3.2
-# For all skill models, also apply: kubectl apply -f k8s/ollama-full.yaml
 resources:
   - namespace.yaml
   - configmap.yaml
   - secret.yaml
-  - ollama-deployment.yaml
   - backend-deployment.yaml
   - backend-service.yaml
   - frontend-deployment.yaml
   - frontend-service.yaml
+  - livekit-agent-deployment.yaml
   - ingress.yaml
 
 images:
-  - name: kyawzayarsoe/ielts-ai-ollama-llama32
-    newTag: latest
   - name: kyawzayarsoe/ielts-ai-backend
     newTag: latest
   - name: kyawzayarsoe/ielts-ai-frontend
+    newTag: latest
+  - name: kyawzayarsoe/ielts-ai-livekit-agent
     newTag: latest
 
 commonLabels:

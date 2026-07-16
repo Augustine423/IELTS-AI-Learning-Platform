@@ -17,7 +17,7 @@ const sans = Manrope({
 export const metadata: Metadata = {
   title: "IELTS AI — Conversational Tutor",
   description:
-    "Situational dialogue and exam practice for Listening, Speaking, Reading, and Writing — offline Ollama powered.",
+    "Situational dialogue and exam practice for Listening, Speaking, Reading, and Writing — LiveKit Cloud powered.",
   icons: {
     icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
     shortcut: "/favicon.svg",

@@ -1,28 +1,9 @@
 llm:
-  provider: ollama
-  model: llama3.2
-  # Fallback URL when a model has no dedicated endpoint
-  base_url: http://ollama-llama32:11434
+  # Chat text mode: Groq (free tier) or OpenAI-compatible
+  provider: groq
+  model: llama-3.3-70b-versatile
   temperature: 0.7
   max_tokens: 2048
-  selection_mode: auto
-  models:
-    catalog:
-      - llama3.2
-      - qwen2.5:7b
-      - llama3.1:8b
-      - gemma2:9b
-    by_skill:
-      listening: llama3.2
-      speaking: llama3.1:8b
-      reading: gemma2:9b
-      writing: qwen2.5:7b
-    # One Docker image / container per model (keeps images smaller)
-    endpoints:
-      llama3.2: http://ollama-llama32:11434
-      llama3.1:8b: http://ollama-llama31:11434
-      qwen2.5:7b: http://ollama-qwen25:11434
-      gemma2:9b: http://ollama-gemma2:11434
 
 stt:
   provider: whisper

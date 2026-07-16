@@ -93,12 +93,6 @@ docker-compose.override.yml
 .cursor/
 .claude/
 
-# Ollama GGUF assets (large; used only for offline image bake)
-models/*.gguf
-models/Modelfile
-!models/.gitkeep
-!models/Modelfile.example
-
 # Temporary files
 tmp/
 temp/

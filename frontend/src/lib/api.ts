@@ -35,10 +35,7 @@ export interface ProviderConfig {
   tts_provider: string;
   available_accents: string[];
   available_genders: string[];
-  model_catalog: string[];
-  models_by_skill: Record<string, string>;
-  model_endpoints: Record<string, string>;
-  default_model_mode: string;
+  livekit_enabled?: boolean;
 }
 
 export interface ChatOptions {
@@ -61,10 +58,9 @@ export async function fetchConfig(): Promise<ProviderConfig> {
 
 export async function fetchHealth(): Promise<{
   status: string;
-  ollama_available: boolean;
+  llm_available: boolean;
   llm_provider: string;
   llm_model: string;
-  models_installed: string[];
   models_by_skill: Record<string, string>;
   livekit_configured?: boolean;
 }> {
@@ -279,11 +275,4 @@ export const SKILL_STARTERS: Record<Skill, string> = {
     "I'd like an IELTS Academic Reading passage about environmental science with True/False/Not Given questions.",
   writing:
     "I want to practice IELTS Writing Task 2. Please give me an opinion essay topic and I'll write my response.",
-};
-
-export const MODEL_LABELS: Record<string, string> = {
-  "llama3.2": "Llama 3.2 · fast",
-  "llama3.1:8b": "Llama 3.1 8B · dialogue",
-  "qwen2.5:7b": "Qwen 2.5 7B · writing",
-  "gemma2:9b": "Gemma 2 9B · reading",
 };

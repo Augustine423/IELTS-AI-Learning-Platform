@@ -1,31 +1,12 @@
 llm:
-  provider: ollama
-  model: llama3.2
-  base_url: http://localhost:11434
+  provider: groq
+  model: llama-3.3-70b-versatile
   temperature: 0.7
   max_tokens: 2048
-  selection_mode: auto
-  models:
-    catalog:
-      - llama3.2
-      - qwen2.5:7b
-      - llama3.1:8b
-      - gemma2:9b
-    by_skill:
-      listening: llama3.2
-      speaking: llama3.1:8b
-      reading: gemma2:9b
-      writing: qwen2.5:7b
-    # Local docker-compose host ports when developing against Compose
-    endpoints:
-      llama3.2: http://localhost:11434
-      llama3.1:8b: http://localhost:11435
-      qwen2.5:7b: http://localhost:11436
-      gemma2:9b: http://localhost:11437
 
 stt:
   provider: whisper
-  model: base
+  model: tiny
   language: en
 
 tts:

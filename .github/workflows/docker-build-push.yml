@@ -2,17 +2,12 @@ name: Build and Push Docker Images
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, feature/livekit-voice]
     tags: ["v*"]
   pull_request:
     branches: [main, master]
   workflow_dispatch:
     inputs:
-      skip_ollama:
-        description: "Skip building Ollama model images (faster)"
-        type: boolean
-        required: false
-        default: false
       platforms:
         description: "Target platforms (comma-separated)"
         required: false
@@ -27,13 +22,11 @@ env:
   DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME || 'kyawzayarsoe' }}
   BACKEND_IMAGE: ${{ vars.DOCKERHUB_USERNAME || 'kyawzayarsoe' }}/ielts-ai-backend
   FRONTEND_IMAGE: ${{ vars.DOCKERHUB_USERNAME || 'kyawzayarsoe' }}/ielts-ai-frontend
+  AGENT_IMAGE: ${{ vars.DOCKERHUB_USERNAME || 'kyawzayarsoe' }}/ielts-ai-livekit-agent
   PLATFORMS: ${{ github.event.inputs.platforms || 'linux/amd64' }}
-  PUSH_IMAGES: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch') }}
+  PUSH_IMAGES: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/feature/livekit-voice' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch') }}
 
 jobs:
-  # ---------------------------------------------------------------------------
-  # Backend — FastAPI + Whisper
-  # ---------------------------------------------------------------------------
   build-backend:
     name: Backend image
     runs-on: ubuntu-latest
@@ -41,39 +34,25 @@ jobs:
       contents: read
       packages: write
     timeout-minutes: 45
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
       - name: Log in to Docker Hub
         if: env.PUSH_IMAGES == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ env.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Docker metadata (backend)
-        id: meta
+      - id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.BACKEND_IMAGE }}
           tags: |
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/feature/livekit-voice' }}
             type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=ref,event=branch
-            type=ref,event=pr
             type=sha,prefix=sha-
-
-      - name: Build and push backend
-        uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v6
         with:
           context: ./backend
           file: ./backend/Dockerfile
@@ -85,13 +64,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=backend
           provenance: mode=min
           sbom: true
-          build-args: |
-            BUILDKIT_SBOM_SCAN_CONTEXT=true
-            BUILDKIT_SBOM_SCAN_STAGE=true
 
-  # ---------------------------------------------------------------------------
-  # Frontend — Next.js
-  # ---------------------------------------------------------------------------
   build-frontend:
     name: Frontend image
     runs-on: ubuntu-latest
@@ -99,39 +72,25 @@ jobs:
       contents: read
       packages: write
     timeout-minutes: 30
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
       - name: Log in to Docker Hub
         if: env.PUSH_IMAGES == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ env.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Docker metadata (frontend)
-        id: meta
+      - id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.FRONTEND_IMAGE }}
           tags: |
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/feature/livekit-voice' }}
             type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=ref,event=branch
-            type=ref,event=pr
             type=sha,prefix=sha-
-
-      - name: Build and push frontend
-        uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v6
         with:
           context: ./frontend
           file: ./frontend/Dockerfile
@@ -143,110 +102,48 @@ jobs:
           cache-to: type=gha,mode=max,scope=frontend
           provenance: mode=min
           sbom: true
-          build-args: |
-            BUILDKIT_SBOM_SCAN_CONTEXT=true
-            BUILDKIT_SBOM_SCAN_STAGE=true
 
-  # ---------------------------------------------------------------------------
-  # Ollama — separate images (one model each, shared multi-stage base)
-  # ---------------------------------------------------------------------------
-  build-ollama:
-    name: Ollama · ${{ matrix.slug }}
-    if: >
-      github.event.inputs.skip_ollama != 'true' &&
-      (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'build-ollama'))
+  build-agent:
+    name: LiveKit agent image
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-    timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - slug: llama32
-            model: llama3.2
-            image_suffix: llama32
-          - slug: llama31
-            model: llama3.1:8b
-            image_suffix: llama31
-          - slug: qwen25
-            model: qwen2.5:7b
-            image_suffix: qwen25
-          - slug: gemma2
-            model: gemma2:9b
-            image_suffix: gemma2
-
+    timeout-minutes: 30
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Free disk space
-        uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          tool-cache: true
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: false
-          swap-storage: true
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
       - name: Log in to Docker Hub
         if: env.PUSH_IMAGES == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ env.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Docker metadata
-        id: meta
+      - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.DOCKERHUB_USERNAME }}/ielts-ai-ollama-${{ matrix.image_suffix }}
+          images: ${{ env.AGENT_IMAGE }}
           tags: |
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/feature/livekit-voice' }}
             type=semver,pattern={{version}}
-            type=ref,event=branch
-            type=ref,event=pr
             type=sha,prefix=sha-
-
-      - name: Build and push model image
-        uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v6
         with:
-          context: .
-          file: ./docker/ollama/Dockerfile
-          target: ollama-model
+          context: ./agents/ielts_voice
+          file: ./agents/ielts_voice/Dockerfile
           platforms: ${{ env.PLATFORMS }}
           push: ${{ env.PUSH_IMAGES == 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            BAKE_MODEL=${{ matrix.model }}
-            OLLAMA_VERSION=v0.32.0
-            OFFLINE_BUILD=0
-            INCLUDE_GPU=0
-            BUILDKIT_SBOM_SCAN_CONTEXT=true
-            BUILDKIT_SBOM_SCAN_STAGE=true
-          cache-from: |
-            type=registry,ref=${{ env.DOCKERHUB_USERNAME }}/ielts-ai-ollama-${{ matrix.image_suffix }}:buildcache
-            type=registry,ref=${{ env.DOCKERHUB_USERNAME }}/ielts-ai-ollama-base:buildcache
-          cache-to: ${{ env.PUSH_IMAGES == 'true' && format('type=registry,ref={0}/ielts-ai-ollama-{1}:buildcache,mode=max', env.DOCKERHUB_USERNAME, matrix.image_suffix) || '' }}
+          cache-from: type=gha,scope=livekit-agent
+          cache-to: type=gha,mode=max,scope=livekit-agent
           provenance: mode=min
           sbom: true
 
-  # ---------------------------------------------------------------------------
-  # Summary
-  # ---------------------------------------------------------------------------
   summary:
     name: CI summary
-    needs: [build-backend, build-frontend, build-ollama]
+    needs: [build-backend, build-frontend, build-agent]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -254,36 +151,23 @@ jobs:
         env:
           BACKEND: ${{ needs.build-backend.result }}
           FRONTEND: ${{ needs.build-frontend.result }}
-          OLLAMA: ${{ needs.build-ollama.result }}
+          AGENT: ${{ needs.build-agent.result }}
           PUSH: ${{ env.PUSH_IMAGES }}
           USER: ${{ env.DOCKERHUB_USERNAME }}
         run: |
           {
-            echo "## Docker CI summary"
-            echo ""
-            echo "| Image | Job result |"
-            echo "|-------|------------|"
+            echo "## Docker CI summary (LiveKit-only)"
+            echo "| Image | Result |"
+            echo "|-------|--------|"
             echo "| \`${USER}/ielts-ai-backend\` | ${BACKEND} |"
             echo "| \`${USER}/ielts-ai-frontend\` | ${FRONTEND} |"
-            echo "| \`${USER}/ielts-ai-ollama-*\` (4 model images) | ${OLLAMA} |"
+            echo "| \`${USER}/ielts-ai-livekit-agent\` | ${AGENT} |"
             echo ""
-            echo "- **Push to Docker Hub:** \`${PUSH}\`"
-            if [[ "${PUSH}" == "true" ]]; then
-              echo ""
-              echo '```bash'
-              echo "docker pull ${USER}/ielts-ai-ollama-llama32:latest"
-              echo "docker pull ${USER}/ielts-ai-ollama-llama31:latest"
-              echo "docker pull ${USER}/ielts-ai-ollama-qwen25:latest"
-              echo "docker pull ${USER}/ielts-ai-ollama-gemma2:latest"
-              echo '```'
-            fi
+            echo "- **Push:** \`${PUSH}\`"
           } >> "$GITHUB_STEP_SUMMARY"
-
       - name: Fail if a required build failed
         if: |
           needs.build-backend.result == 'failure' ||
           needs.build-frontend.result == 'failure' ||
-          needs.build-ollama.result == 'failure'
-        run: |
-          echo "One or more image builds failed."
-          exit 1
+          needs.build-agent.result == 'failure'
+        run: exit 1
