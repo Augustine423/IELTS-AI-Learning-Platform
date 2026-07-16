@@ -1,11 +1,17 @@
-# Pull-only stack — uses images already built & pushed to Docker Hub by GitHub Actions.
-# No local Docker builds.
+# IELTS AI — Docker Compose
 #
-# Quick (llama3.2 only):
-#   docker compose pull && docker compose up
+# LiveKit-first (small VMs — no multi-GB Ollama):
+#   docker compose up
+#   # needs .env: LIVEKIT_* + GROQ_API_KEY or OPENAI_API_KEY
 #
-# All skill models:
-#   docker compose --profile full pull && docker compose --profile full up
+# Classic chat with one local model:
+#   docker compose --profile ollama up
+#
+# All four local Ollama models:
+#   docker compose --profile full up
+#
+# Rebuild local images (dev / CI):
+#   docker compose --profile build up --build
 
 x-ollama-health: &ollama-health
   test: ["CMD", "curl", "-sf", "http://127.0.0.1:11434/api/tags"]
@@ -17,17 +23,27 @@ x-ollama-health: &ollama-health
 x-pull: &pull-always
   pull_policy: always
 
+x-livekit-env: &livekit-env
+  LIVEKIT_URL: ${LIVEKIT_URL:-}
+  LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-}
+  LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
+  GROQ_API_KEY: ${GROQ_API_KEY:-}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.groq.com/openai/v1}
+
 services:
-  # --- Listening default / fallback (always on) ---
+  # ---------------------------------------------------------------------------
+  # Optional local LLMs (heavy images) — profile: ollama | full
+  # ---------------------------------------------------------------------------
   ollama-llama32:
     <<: *pull-always
+    profiles: ["ollama", "full"]
     image: kyawzayarsoe/ielts-ai-ollama-llama32:latest
     ports:
       - "11434:11434"
     healthcheck: *ollama-health
     restart: unless-stopped
 
-  # --- Speaking (profile: full) ---
   ollama-llama31:
     <<: *pull-always
     profiles: ["full"]
@@ -37,7 +53,6 @@ services:
     healthcheck: *ollama-health
     restart: unless-stopped
 
-  # --- Writing (profile: full) ---
   ollama-qwen25:
     <<: *pull-always
     profiles: ["full"]
@@ -47,7 +62,6 @@ services:
     healthcheck: *ollama-health
     restart: unless-stopped
 
-  # --- Reading (profile: full) ---
   ollama-gemma2:
     <<: *pull-always
     profiles: ["full"]
@@ -57,46 +71,78 @@ services:
     healthcheck: *ollama-health
     restart: unless-stopped
 
+  # ---------------------------------------------------------------------------
+  # Backend — FastAPI (LiveKit tokens + classic chat/voice)
+  # ---------------------------------------------------------------------------
   backend:
     <<: *pull-always
     image: kyawzayarsoe/ielts-ai-backend:latest
     ports:
       - "8000:8000"
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
-      - OLLAMA_BASE_URL=http://ollama-llama32:11434
-      - HOME=/app
-      - HF_HOME=/app/.cache/huggingface
-      - WHISPER_CACHE_DIR=/app/.cache/whisper
-      - TMPDIR=/app/tmp
-      - LIVEKIT_URL=${LIVEKIT_URL:-}
-      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-}
-      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-}
-      - GROQ_API_KEY=${GROQ_API_KEY:-}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      <<: *livekit-env
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama-llama32:11434}
+      HOME: /app
+      HF_HOME: /app/.cache/huggingface
+      WHISPER_CACHE_DIR: /app/.cache/whisper
+      TMPDIR: /app/tmp
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
     volumes:
       - ./docker/config.yaml:/app/config.yaml:ro
-    depends_on:
-      ollama-llama32:
-        condition: service_healthy
+    # Ollama is optional — do not block LiveKit-only deploys
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')",
+        ]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 180s
+      start_period: 60s
+    restart: unless-stopped
 
+  # Local rebuild of backend (optional)
+  backend-build:
+    profiles: ["build"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: kyawzayarsoe/ielts-ai-backend:local
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      <<: *livekit-env
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama-llama32:11434}
+      HOME: /app
+      HF_HOME: /app/.cache/huggingface
+      WHISPER_CACHE_DIR: /app/.cache/whisper
+      TMPDIR: /app/tmp
+    volumes:
+      - ./docker/config.yaml:/app/config.yaml:ro
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Frontend — Next.js on container port 80
+  # ---------------------------------------------------------------------------
   frontend:
     <<: *pull-always
     image: kyawzayarsoe/ielts-ai-frontend:latest
     ports:
-      # Image listens on :80 — browse http://localhost
       - "80:80"
     environment:
-      - NODE_ENV=production
-      - PORT=80
-      - API_INTERNAL_URL=http://backend:8000
+      NODE_ENV: production
+      PORT: "80"
+      HOSTNAME: 0.0.0.0
+      API_INTERNAL_URL: http://backend:8000
     depends_on:
       backend:
         condition: service_healthy
@@ -112,22 +158,40 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+    restart: unless-stopped
 
-  # --- LiveKit Cloud agent (all 4 skills; no big Ollama required) ---
-  # Requires .env: LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET, GROQ_API_KEY or OPENAI_API_KEY
-  #   docker compose --profile livekit up livekit-agent
+  frontend-build:
+    profiles: ["build"]
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: kyawzayarsoe/ielts-ai-frontend:local
+    ports:
+      - "80:80"
+    environment:
+      NODE_ENV: production
+      PORT: "80"
+      HOSTNAME: 0.0.0.0
+      API_INTERNAL_URL: http://backend-build:8000
+    depends_on:
+      - backend-build
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # LiveKit Cloud agent — all 4 skills (default; no Ollama)
+  # ---------------------------------------------------------------------------
   livekit-agent:
-    profiles: ["livekit"]
     build:
       context: ./agents/ielts_voice
       dockerfile: Dockerfile
+    image: kyawzayarsoe/ielts-ai-livekit-agent:local
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
-      - LIVEKIT_URL=${LIVEKIT_URL}
-      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
-      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
-      - GROQ_API_KEY=${GROQ_API_KEY:-}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.groq.com/openai/v1}
+      <<: *livekit-env
+      IELTS_TTS_PROVIDER: ${IELTS_TTS_PROVIDER:-edge}
+      GROQ_LLM_MODEL: ${GROQ_LLM_MODEL:-llama-3.3-70b-versatile}
+      GROQ_STT_MODEL: ${GROQ_STT_MODEL:-whisper-large-v3}
     restart: unless-stopped
+    # Agent talks to LiveKit Cloud only — no depends_on backend

@@ -79,55 +79,50 @@ No host Ollama install required.
 
 ---
 
-## Quick start (Docker — pull from Hub)
+## Quick start (Docker)
 
-Images are built & pushed by GitHub Actions. Local Compose does **not** build by default.
+Images for frontend/backend pull from Hub. The LiveKit agent **builds locally**.
 
-### Default (small — `llama3.2` only)
+### Default — LiveKit voice (small; no Ollama)
 
-**Windows**
 ```powershell
 .\scripts\start.ps1
 ```
 
-**Linux / macOS / cloud VM**
 ```bash
-chmod +x scripts/*.sh
 ./scripts/start.sh
 ```
 
-Same as:
-```bash
-docker compose pull
-docker compose up
-```
+Needs `.env` with `LIVEKIT_*` and `GROQ_API_KEY` (or `OPENAI_API_KEY`).  
+App: **http://localhost** · API: http://localhost:8000
 
-### Full stack (all four models)
+### Optional local Ollama
 
 ```powershell
-.\scripts\start.ps1 --full
+.\scripts\start.ps1 --ollama    # + llama3.2
+.\scripts\start.ps1 --full      # + all four model images
 ```
 
-```bash
-./scripts/start.sh --full
-# or:
-docker compose --profile full pull
-docker compose --profile full up
-```
+| Profile | Command | What runs |
+|---------|---------|-----------|
+| *(default)* | `docker compose up --build` | frontend + backend + livekit-agent |
+| `ollama` | `docker compose --profile ollama up` | above + llama3.2 |
+| `full` | `docker compose --profile full up` | above + all 4 Ollama models |
+| `build` | `docker compose --profile build up --build` | local frontend/backend Dockerfiles |
 
 | Service | URL |
 |---------|-----|
 | **App (UI)** | **http://localhost** (image listens on `:80`) |
 | API | http://localhost:8000 |
 | API docs | http://localhost:8000/docs |
-| Ollama `llama3.2` | http://localhost:11434 |
+| Ollama `llama3.2` | http://localhost:11434 (`--ollama` / `--full`) |
 | Ollama `llama3.1:8b` | http://localhost:11435 (`--full`) |
 | Ollama `qwen2.5:7b` | http://localhost:11436 (`--full`) |
 | Ollama `gemma2:9b` | http://localhost:11437 (`--full`) |
 
 Stop:
 ```bash
-docker compose --profile full down   # if you used --full
+docker compose --profile full down
 docker compose down
 ```
 
@@ -414,8 +409,8 @@ Hub images only (`imagePullPolicy: Always`).
 
 | Script | Purpose |
 |--------|---------|
-| `scripts/start.*` | `docker compose pull` + `up` (`--full` = all Ollama models) |
-| `scripts/start-livekit-agent.*` | LiveKit Cloud voice agent for all 4 skills |
+| `scripts/start.*` | LiveKit-first Compose (`--ollama` / `--full` for local models) |
+| `scripts/start-livekit-agent.*` | Run agent on host without Compose |
 | `scripts/build-ollama.*` | Optional local Ollama rebuild (CI/dev only) |
 | `scripts/import-model-offline.*` | Optional offline GGUF bake for custom images |
 

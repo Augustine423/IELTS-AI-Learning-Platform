@@ -98,5 +98,5 @@ COPY --from=sbom --chown=app:app /sbom.spdx.json /sbom/sbom.spdx.json
 USER app
 
 LABEL org.opencontainers.image.title="ielts-ai-backend" \
-      org.opencontainers.image.description="IELTS AI FastAPI backend (slim)" \
+      org.opencontainers.image.description="IELTS AI FastAPI backend (LiveKit tokens + chat/voice)" \
       org.opencontainers.image.sbom.path="/sbom/sbom.spdx.json"

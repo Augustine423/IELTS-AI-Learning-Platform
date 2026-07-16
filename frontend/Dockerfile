@@ -87,5 +87,5 @@ COPY --from=sbom --chown=nextjs:nodejs /sbom.spdx.json /sbom/sbom.spdx.json
 USER nextjs
 
 LABEL org.opencontainers.image.title="ielts-ai-frontend" \
-      org.opencontainers.image.description="IELTS AI Next.js frontend (slim)" \
+      org.opencontainers.image.description="IELTS AI Next.js frontend (LiveKit voice UI, port 80)" \
       org.opencontainers.image.sbom.path="/sbom/sbom.spdx.json"
