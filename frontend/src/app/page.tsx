@@ -2,14 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { SkillCard } from "@/components/SkillCard";
+import { SkillGrid } from "@/components/SkillCard";
 import { VoiceSelector } from "@/components/VoiceSelector";
-import { fetchSkills, fetchHealth, SkillInfo } from "@/lib/api";
+import { fetchHealth } from "@/lib/api";
 import { useVoicePreferences } from "@/lib/useVoicePreferences";
-import { MessageCircle, Sparkles, Waves } from "lucide-react";
+import { Radio, Waves } from "lucide-react";
 
 export default function HomePage() {
-  const [skills, setSkills] = useState<SkillInfo[]>([]);
   const [health, setHealth] = useState<{
     llm_available: boolean;
     livekit_configured?: boolean;
@@ -19,7 +18,6 @@ export default function HomePage() {
   const [voicePrefs, setVoicePrefs] = useVoicePreferences();
 
   useEffect(() => {
-    fetchSkills().then(setSkills).catch(console.error);
     fetchHealth().then(setHealth).catch(() => setHealth(null));
   }, []);
 
@@ -45,28 +43,27 @@ export default function HomePage() {
             className="animate-fade-up mt-5 text-lg md:text-xl text-white/75 max-w-xl text-balance"
             style={{ animationDelay: "80ms" }}
           >
-            Situational dialogues and skill drills with a live tutor — speak,
-            listen, read, and write with UK, US, or Australian voices.
+            Practice all four skills with a live tutor — voice via LiveKit Cloud,
+            or text chat, with UK, US, or Australian accents.
           </p>
 
           <div
             className="animate-fade-up mt-8 flex flex-wrap items-center gap-3"
             style={{ animationDelay: "140ms" }}
           >
-            <a
-              href="#skills"
-              className="inline-flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 text-ink font-semibold text-sm hover:bg-gold-soft transition-colors"
-            >
-              <Sparkles className="w-4 h-4" />
-              Choose a skill
-            </a>
             <Link
               href="/skills/speaking"
+              className="inline-flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 text-ink font-semibold text-sm hover:bg-gold-soft transition-colors"
+            >
+              <Radio className="w-4 h-4" />
+              Start LiveKit speaking
+            </Link>
+            <a
+              href="#skills"
               className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/5 px-5 py-2.5 text-white text-sm font-medium hover:bg-white/10 transition-colors"
             >
-              <MessageCircle className="w-4 h-4" />
-              Start speaking dialogue
-            </Link>
+              Browse skills
+            </a>
           </div>
 
           {health && (
@@ -82,10 +79,10 @@ export default function HomePage() {
                 }`}
               />
               {health.livekit_configured
-                ? `LiveKit ready · chat ${health.llm_provider}/${health.llm_model}`
+                ? `LiveKit ready · ${health.llm_provider}/${health.llm_model}`
                 : health.llm_available
                   ? `Chat ready · ${health.llm_model}`
-                  : "Add LIVEKIT_* and GROQ_API_KEY to .env"}
+                  : "Connect backend · set LIVEKIT_* and GROQ_API_KEY"}
             </div>
           )}
         </div>
@@ -94,45 +91,35 @@ export default function HomePage() {
 
       <main className="max-w-6xl mx-auto px-6 pb-16 -mt-4">
         <section className="grid lg:grid-cols-[280px_1fr] gap-8 items-start">
-          <aside className="animate-fade-up space-y-4" style={{ animationDelay: "100ms" }}>
+          <aside
+            className="animate-fade-up space-y-4"
+            style={{ animationDelay: "100ms" }}
+          >
             <VoiceSelector preferences={voicePrefs} onChange={setVoicePrefs} />
             <div className="glass-panel rounded-2xl p-4 text-sm text-ink-muted leading-relaxed">
               <div className="flex items-center gap-2 text-sea font-semibold mb-2">
                 <Waves className="w-4 h-4" />
                 How it works
               </div>
-              Pick a skill, choose a <strong className="text-ink">situation</strong>, then
-              use <strong className="text-ink">LiveKit voice</strong> or chat. Accent
-              applies to the tutor voice (UK / US / AU).
-              replies.
+              Open a skill, pick a situation, then use{" "}
+              <strong className="text-ink">LiveKit voice</strong> or{" "}
+              <strong className="text-ink">Chat</strong>. Your accent choice
+              applies to the tutor voice.
             </div>
           </aside>
 
-          <div id="skills" className="animate-fade-up" style={{ animationDelay: "160ms" }}>
-            <div className="flex items-end justify-between mb-5 gap-4">
-              <div>
-                <h2 className="brand-mark text-3xl text-ink">Practice studio</h2>
-                <p className="text-ink-muted mt-1 text-sm">
-                  Four skills · situational prompts · streaming feedback
-                </p>
-              </div>
-            </div>
-            <div className="grid sm:grid-cols-2 gap-4">
-              {skills.map((skill, i) => (
-                <div
-                  key={skill.id}
-                  className="animate-fade-up"
-                  style={{ animationDelay: `${180 + i * 60}ms` }}
-                >
-                  <SkillCard skill={skill} />
-                </div>
-              ))}
-            </div>
-            {skills.length === 0 && (
-              <p className="text-ink-muted text-center py-16 glass-panel rounded-2xl">
-                Loading skills… Is the backend running on port 8000?
+          <div
+            id="skills"
+            className="animate-fade-up"
+            style={{ animationDelay: "160ms" }}
+          >
+            <div className="mb-5">
+              <h2 className="brand-mark text-3xl text-ink">Practice studio</h2>
+              <p className="text-ink-muted mt-1 text-sm">
+                Four skills · always available · no API wait
               </p>
-            )}
+            </div>
+            <SkillGrid />
           </div>
         </section>
       </main>

@@ -1,7 +1,7 @@
 "use client";
 
-import { SkillInfo } from "@/lib/api";
-import { SKILL_META } from "@/lib/scenarios";
+import { SKILL_LIST, SKILL_META } from "@/lib/scenarios";
+import type { Skill } from "@/lib/api";
 import { Headphones, Mic, BookOpen, PenLine, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { clsx } from "clsx";
@@ -13,7 +13,7 @@ const ICONS = {
   pen: PenLine,
 };
 
-const ACCENT: Record<string, string> = {
+const ACCENT: Record<Skill, string> = {
   listening: "bg-skill-listening",
   speaking: "bg-skill-speaking",
   reading: "bg-skill-reading",
@@ -21,16 +21,16 @@ const ACCENT: Record<string, string> = {
 };
 
 interface SkillCardProps {
-  skill: SkillInfo;
+  skill: Skill;
 }
 
 export function SkillCard({ skill }: SkillCardProps) {
-  const Icon = ICONS[skill.icon as keyof typeof ICONS] || BookOpen;
-  const meta = SKILL_META[skill.id];
-  const accent = ACCENT[skill.id] || "bg-sea";
+  const meta = SKILL_META[skill];
+  const Icon = ICONS[meta.icon];
+  const accent = ACCENT[skill];
 
   return (
-    <Link href={`/skills/${skill.id}`} className="block h-full group">
+    <Link href={`/skills/${skill}`} className="block h-full group">
       <article className="relative h-full overflow-hidden rounded-3xl glass-panel p-6 transition-all duration-300 hover:shadow-lift hover:-translate-y-0.5">
         <div
           className={clsx(
@@ -49,12 +49,30 @@ export function SkillCard({ skill }: SkillCardProps) {
           </div>
           <ArrowUpRight className="w-5 h-5 text-ink-muted opacity-0 -translate-y-1 transition-all group-hover:opacity-100 group-hover:translate-y-0" />
         </div>
-        <h3 className="brand-mark mt-5 text-2xl text-ink">{skill.name}</h3>
+        <h3 className="brand-mark mt-5 text-2xl text-ink">{meta.name}</h3>
         <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-sea">
-          {meta?.tagline}
+          {meta.tagline}
         </p>
-        <p className="mt-3 text-sm text-ink-muted leading-relaxed">{skill.description}</p>
+        <p className="mt-3 text-sm text-ink-muted leading-relaxed">
+          {meta.description}
+        </p>
       </article>
     </Link>
+  );
+}
+
+export function SkillGrid() {
+  return (
+    <div className="grid sm:grid-cols-2 gap-4">
+      {SKILL_LIST.map((skill, i) => (
+        <div
+          key={skill}
+          className="animate-fade-up"
+          style={{ animationDelay: `${180 + i * 60}ms` }}
+        >
+          <SkillCard skill={skill} />
+        </div>
+      ))}
+    </div>
   );
 }

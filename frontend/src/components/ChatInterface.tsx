@@ -8,7 +8,6 @@ import {
   streamChat,
 } from "@/lib/api";
 import { SCENARIOS, SKILL_META, Scenario } from "@/lib/scenarios";
-import { VoiceConversation } from "./VoiceConversation";
 import { LiveKitVoiceRoom } from "./LiveKitVoiceRoom";
 import { AudioPlayer } from "./AudioPlayer";
 import {
@@ -26,7 +25,7 @@ interface ChatInterfaceProps {
   voicePreferences: VoicePreferences;
 }
 
-type PracticeMode = "chat" | "livekit" | "voice";
+type PracticeMode = "livekit" | "chat";
 
 export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -48,12 +47,6 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
   useEffect(() => {
     return () => abortRef.current?.();
   }, []);
-
-  function chatOptions() {
-    return {
-      useWebSearch,
-    };
-  }
 
   function sendMessage(text: string, scenario?: Scenario | null) {
     if (!text.trim() || loading) return;
@@ -77,7 +70,7 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
         accumulated += chunk;
         setStreamingText(accumulated);
       },
-      (meta) => {
+      () => {
         setMessages((prev) => [
           ...prev,
           { role: "assistant", content: accumulated },
@@ -90,22 +83,19 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
           ...prev,
           {
             role: "assistant",
-            content: `Something went wrong: ${err}\n\nTip: set GROQ_API_KEY (or OPENAI_API_KEY) in .env and restart backend.`,
+            content: `Something went wrong: ${err}\n\nTip: set GROQ_API_KEY in .env and ensure the backend is running.`,
           },
         ]);
         setStreamingText("");
         setLoading(false);
       },
-      chatOptions()
+      { useWebSearch }
     );
   }
 
   function startScenario(scenario: Scenario) {
     setActiveScenario(scenario);
-    if (mode === "livekit") {
-      return;
-    }
-    setMode("chat");
+    if (mode === "livekit") return;
     sendMessage(scenario.prompt, scenario);
   }
 
@@ -122,22 +112,8 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
 
   return (
     <div className="flex flex-col h-full min-h-[calc(100vh-8rem)]">
-      {/* Mode + session bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4 pb-2">
         <div className="inline-flex rounded-full border border-ink/10 bg-white/70 p-1 shadow-sm">
-          <button
-            type="button"
-            onClick={() => setMode("chat")}
-            className={clsx(
-              "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all",
-              mode === "chat"
-                ? "bg-sea text-white shadow-sm"
-                : "text-ink-muted hover:text-ink"
-            )}
-          >
-            <MessageSquare className="w-3.5 h-3.5" />
-            Chat
-          </button>
           <button
             type="button"
             onClick={() => setMode("livekit")}
@@ -153,15 +129,16 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
           </button>
           <button
             type="button"
-            onClick={() => setMode("voice")}
+            onClick={() => setMode("chat")}
             className={clsx(
               "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all",
-              mode === "voice"
-                ? "bg-ink text-white shadow-sm"
+              mode === "chat"
+                ? "bg-sea text-white shadow-sm"
                 : "text-ink-muted hover:text-ink"
             )}
           >
-            Classic mic
+            <MessageSquare className="w-3.5 h-3.5" />
+            Chat
           </button>
         </div>
 
@@ -171,7 +148,7 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
               Scene · {activeScenario.title}
             </span>
           )}
-          {!empty && (
+          {(!empty || activeScenario) && (
             <button
               type="button"
               onClick={resetSession}
@@ -184,7 +161,6 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
         </div>
       </div>
 
-      {/* Messages / scenarios */}
       <div className="flex-1 overflow-y-auto px-4 py-2 space-y-4">
         {empty && (
           <div className="animate-fade-up py-4">
@@ -194,9 +170,10 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
               </p>
               <h2 className="brand-mark text-3xl text-ink mt-1">{meta.tagline}</h2>
               <p className="text-sm text-ink-muted mt-2 leading-relaxed">
-                Pick a situation to start a natural dialogue, or open{" "}
-                <strong className="text-ink">LiveKit voice</strong> for
-                realtime tutoring on all four skills.
+                Pick a situation
+                {mode === "livekit"
+                  ? ", then start LiveKit voice below."
+                  : " to begin a text chat with the tutor."}
               </p>
             </div>
 
@@ -207,7 +184,12 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
                   type="button"
                   onClick={() => startScenario(s)}
                   disabled={loading}
-                  className="scenario-chip text-left rounded-2xl border border-ink/8 bg-white/80 p-4 hover:border-sea/40"
+                  className={clsx(
+                    "scenario-chip text-left rounded-2xl border bg-white/80 p-4 transition-colors",
+                    activeScenario?.id === s.id
+                      ? "border-sea ring-2 ring-sea/20"
+                      : "border-ink/8 hover:border-sea/40"
+                  )}
                 >
                   <div className="flex items-start gap-2">
                     <Sparkles className="w-4 h-4 text-gold mt-0.5 shrink-0" />
@@ -283,7 +265,6 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
         <div ref={bottomRef} />
       </div>
 
-      {/* Composer */}
       <div className="sticky bottom-0 border-t border-ink/8 bg-foam/90 backdrop-blur-md p-4">
         {mode === "livekit" ? (
           <div className="glass-panel rounded-2xl p-4">
@@ -294,54 +275,22 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
               disabled={loading}
             />
             <p className="text-xs text-ink-muted mt-3 leading-relaxed">
-              Uses LiveKit Cloud + Groq/OpenAI. Works for Listening, Speaking,
-              Reading, and Writing. Pick a scenario above first (optional), then
-              Start LiveKit.
+              Realtime voice via LiveKit Cloud. Optional: select a scene above
+              first, then Start LiveKit.
             </p>
-          </div>
-        ) : mode === "voice" ? (
-          <div className="glass-panel rounded-2xl p-4 flex flex-col sm:flex-row items-center gap-4">
-            <VoiceConversation
-              skill={skill}
-              voicePreferences={voicePreferences}
-              messages={messages}
-              onMessagesChange={setMessages}
-              disabled={loading}
-              useWebSearch={useWebSearch}
-              onScenarioStart={(s) => setActiveScenario(s)}
-            />
-            <div className="flex-1 text-center sm:text-left">
-              <p className="text-sm font-semibold text-ink">Classic mic mode</p>
-              <p className="text-xs text-ink-muted mt-1 leading-relaxed">
-                Local Whisper STT → Groq/OpenAI chat → Edge TTS. Prefer LiveKit
-                voice for lower latency.
-              </p>
-              <label className="mt-3 inline-flex items-center gap-2 text-xs text-ink-muted cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={useWebSearch}
-                  onChange={(e) => setUseWebSearch(e.target.checked)}
-                  className="rounded border-ink/20 text-sea focus:ring-sea"
-                />
-                <Globe className="w-3.5 h-3.5" />
-                Enrich with web tips
-              </label>
-            </div>
           </div>
         ) : (
           <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2 px-1">
-              <label className="inline-flex items-center gap-2 text-xs text-ink-muted cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={useWebSearch}
-                  onChange={(e) => setUseWebSearch(e.target.checked)}
-                  className="rounded border-ink/20 text-sea focus:ring-sea"
-                />
-                <Globe className="w-3.5 h-3.5" />
-                Web enrich (DuckDuckGo tips in the prompt)
-              </label>
-            </div>
+            <label className="inline-flex items-center gap-2 text-xs text-ink-muted cursor-pointer select-none px-1">
+              <input
+                type="checkbox"
+                checked={useWebSearch}
+                onChange={(e) => setUseWebSearch(e.target.checked)}
+                className="rounded border-ink/20 text-sea focus:ring-sea"
+              />
+              <Globe className="w-3.5 h-3.5" />
+              Web enrich
+            </label>
             <div className="flex items-end gap-2">
               <textarea
                 value={input}

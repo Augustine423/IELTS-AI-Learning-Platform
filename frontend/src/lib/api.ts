@@ -21,13 +21,6 @@ export interface ChatMessage {
   content: string;
 }
 
-export interface SkillInfo {
-  id: Skill;
-  name: string;
-  description: string;
-  icon: string;
-}
-
 export interface ProviderConfig {
   llm_provider: string;
   llm_model: string;
@@ -42,12 +35,6 @@ export interface ChatOptions {
   useWebSearch?: boolean;
   modelMode?: ModelMode;
   model?: string | null;
-}
-
-export async function fetchSkills(): Promise<SkillInfo[]> {
-  const res = await fetch(`${API_URL}/api/skills`);
-  if (!res.ok) throw new Error("Failed to fetch skills");
-  return res.json();
 }
 
 export async function fetchConfig(): Promise<ProviderConfig> {

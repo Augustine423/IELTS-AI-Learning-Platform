@@ -140,26 +140,42 @@ export const SCENARIOS: Record<Skill, Scenario[]> = {
 
 export const SKILL_META: Record<
   Skill,
-  { name: string; tagline: string; accent: string }
+  { name: string; tagline: string; accent: string; description: string; icon: "headphones" | "mic" | "book-open" | "pen" }
 > = {
   listening: {
     name: "Listening",
     tagline: "Hear it. Catch it. Answer it.",
     accent: "listening",
+    description: "Section-style scripts, comprehension drills, and LiveKit voice practice.",
+    icon: "headphones",
   },
   speaking: {
     name: "Speaking",
     tagline: "Situational dialogue with live coaching",
     accent: "speaking",
+    description: "Parts 1–3 and role-play with realtime LiveKit tutoring.",
+    icon: "mic",
   },
   reading: {
     name: "Reading",
     tagline: "Passages, paraphrase, precision",
     accent: "reading",
+    description: "Academic & GT passages with coaching via chat or voice.",
+    icon: "book-open",
   },
   writing: {
     name: "Writing",
     tagline: "Band-style feedback that teaches",
     accent: "writing",
+    description: "Task 1 & 2 feedback with LiveKit or text chat.",
+    icon: "pen",
   },
 };
+
+/** Always available in the UI — does not depend on the backend API. */
+export const SKILL_LIST: Skill[] = [
+  "listening",
+  "speaking",
+  "reading",
+  "writing",
+];
