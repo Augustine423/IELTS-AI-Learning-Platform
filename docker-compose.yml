@@ -1,16 +1,15 @@
-# IELTS AI — LiveKit-only stack (pull from Docker Hub, no local builds)
+# IELTS AI — LiveKit Cloud voice stack (pull from Docker Hub)
 #
-#   docker compose pull && docker compose up
+#   cp .env.example .env   # fill LIVEKIT_* and GROQ_API_KEY
+#   docker compose pull && docker compose up -d
 #   # or: .\scripts\start.ps1
 #
-# Requires .env:
-#   LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET
-#   GROQ_API_KEY (recommended) and/or OPENAI_API_KEY
-#
-# Images (Docker Hub):
+# Images:
 #   kyawzayarsoe/ielts-ai-backend:latest
 #   kyawzayarsoe/ielts-ai-frontend:latest
 #   kyawzayarsoe/ielts-ai-livekit-agent:latest
+#
+# Self-hosting livekit-server in Compose is optional later; Cloud is the default.
 
 x-pull: &pull-always
   pull_policy: always

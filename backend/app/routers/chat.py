@@ -75,7 +75,9 @@ async def chat_stream(request: ChatRequest):
                 return
             yield {
                 "event": "meta",
-                "data": json.dumps({"model": model, "model_mode": request.model_mode.value}),
+                "data": json.dumps(
+                    {"model": model, "model_mode": request.model_mode.value}
+                ),
             }
             async for chunk in llm.stream(messages, system_prompt, model=model):
                 yield {"event": "message", "data": json.dumps({"content": chunk})}

@@ -188,7 +188,7 @@ export function streamChat(
             }
             if (data.error) streamError = String(data.error);
           } catch {
-            // Plain-text SSE fallback
+            // Plain-text SSE fallback (older backend images)
             if (raw && raw !== "[DONE]") {
               sawContent = true;
               onChunk(raw);
