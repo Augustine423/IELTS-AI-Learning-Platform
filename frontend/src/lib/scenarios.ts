@@ -7,50 +7,103 @@ export interface Scenario {
   prompt: string;
 }
 
-/** Situational starters — natural conversational practice per skill. */
+/**
+ * Situational starters — original role-play prompts inspired by common free
+ * ESL travel/everyday English themes (airport, hotel, transport, dining, etc.).
+ * Prompts teach useful phrases; they do not copy copyrighted scripts.
+ */
 export const SCENARIOS: Record<Skill, Scenario[]> = {
   speaking: [
     {
+      id: "airport-checkin",
+      title: "Situation · Airport check-in",
+      blurb: "Passport, bags, seats, flight delays",
+      prompt:
+        "Situational IELTS Speaking dialogue at an international airport. You are a polite check-in agent. I am a traveller. Start by greeting me and asking for my passport and booking reference. Cover: checked vs cabin bags, seat preference, overweight bags, and a short delay announcement. Keep turns short and natural. After each of my replies, give one better phrase I could use (e.g. “I'd like a window seat, please”). Teach useful words: boarding pass, gate, layover, excess baggage.",
+    },
+    {
+      id: "airport-lost-bag",
+      title: "Situation · Lost luggage",
+      blurb: "Report a missing bag at arrivals",
+      prompt:
+        "Role-play: my checked bag did not arrive. You are airport lost-luggage staff. Ask me to describe the bag (colour, size, wheels, tag), flight number, and contact details. Guide me through filing a PIR (Property Irregularity Report). Keep it realistic and calm. After each turn, coach one clearer travel phrase.",
+    },
+    {
+      id: "hotel-reservation",
+      title: "Situation · Hotel reservation",
+      blurb: "Book a room, ask about amenities",
+      prompt:
+        "Situational dialogue: I want to reserve a hotel room for 3 nights. You are the front-desk receptionist. Cover dates, single/double room, breakfast, Wi‑Fi, check-in time, and price. Ask clarifying questions one at a time. After each reply, suggest one more natural hotel phrase (e.g. “Do you have a twin room available?”).",
+    },
+    {
+      id: "hotel-checkin",
+      title: "Situation · Hotel check-in",
+      blurb: "Arrive, get key, request extras",
+      prompt:
+        "Role-play hotel check-in. You are reception; I just arrived with a booking. Confirm my name and nights, explain breakfast hours, give room number and Wi‑Fi password, and handle one request (late checkout or extra towels). Correct unnatural phrasing gently after each turn.",
+    },
+    {
+      id: "bank-account",
+      title: "Situation · At the bank",
+      blurb: "Open account / withdraw / ask fees",
+      prompt:
+        "Situational dialogue at a bank. You are a helpful bank teller. I am an international student who needs to open a basic account or withdraw cash and ask about fees/ATM limits. Use clear formal customer-service English. After each of my answers, give one stronger banking phrase (e.g. “I'd like to open a current account, please”).",
+    },
+    {
+      id: "hospital-clinic",
+      title: "Situation · Hospital / clinic",
+      blurb: "Describe symptoms, make appointment",
+      prompt:
+        "Role-play a doctor's clinic visit. You are a friendly GP/nurse. I describe symptoms (fever, sore throat, or stomach pain — I choose). Ask about duration, allergies, and medication. Suggest next steps (rest, prescription, tests). Keep language clear and calm. After each turn, teach one useful health phrase (e.g. “I've had a fever since yesterday”).",
+    },
+    {
+      id: "cafe-order",
+      title: "Situation · Coffee order",
+      blurb: "Size, milk, takeaway, payment",
+      prompt:
+        "Café role-play for fluency. You are a barista in a busy café. Take my order: drink type, size, milk options, hot/iced, takeaway or stay, and payment. Offer one upsell naturally. Keep turns short. After each reply, give one better café phrase (e.g. “Could I get that oat milk, please?”).",
+    },
+    {
+      id: "restaurant-order",
+      title: "Situation · Restaurant meal",
+      blurb: "Menu, allergies, bill, tip",
+      prompt:
+        "Restaurant dialogue. You are a waiter/waitress. Help me understand the menu, ask about allergies or vegetarian options, take starters/mains/drinks, then bring the bill. If I ask, explain a dish simply. After each turn, coach one polite dining phrase (e.g. “Could we have the bill, please?” / “I'm allergic to nuts”).",
+    },
+    {
+      id: "bus-ride",
+      title: "Situation · Taking the bus",
+      blurb: "Stops, tickets, asking directions",
+      prompt:
+        "Public transport role-play. You are a bus driver or ticket clerk. I need to go to a city landmark (museum/station/university). Cover which bus number, fare, where to get off, and how to buy a ticket/pass. Use clear, simple English. After each reply, suggest one natural transport phrase (e.g. “Does this bus go to the city centre?”).",
+    },
+    {
+      id: "taxi-ride",
+      title: "Situation · Taking a taxi",
+      blurb: "Destination, route, fare, payment",
+      prompt:
+        "Taxi dialogue. You are the driver. I tell you my destination (airport or hotel). Confirm the address, estimate time/fare, ask about bags, and discuss cash vs card. If the route seems wrong, I may politely question it — respond helpfully. After each turn, teach one useful taxi phrase (e.g. “Could you take me to Terminal 2, please?”).",
+    },
+    {
       id: "part1-hometown",
-      title: "Part 1 · Hometown",
-      blurb: "Warm-up chat about where you live",
+      title: "Exam · Part 1 warm-up",
+      blurb: "Hometown & daily life questions",
       prompt:
-        "Let's practice IELTS Speaking Part 1. Act as the examiner. Ask warm-up questions about my hometown and daily life, one at a time. After each answer, give brief band-style feedback then ask the next question.",
-    },
-    {
-      id: "cafe-roleplay",
-      title: "Situation · Café order",
-      blurb: "Everyday conversation at a café",
-      prompt:
-        "Let's do a situational dialogue for IELTS Speaking fluency. You are a friendly barista in a busy London café. Start the conversation, keep turns short and natural, and gently correct my English after each reply with one better phrase I could use.",
-    },
-    {
-      id: "job-interview",
-      title: "Situation · Job interview",
-      blurb: "Formal Q&A with follow-ups",
-      prompt:
-        "Role-play an IELTS-style formal conversation: you are interviewing me for a graduate job. Ask one question at a time about strengths, teamwork, and future plans. Give concise feedback on fluency and vocabulary after each answer.",
+        "IELTS Speaking Part 1 practice. Act as the examiner. Ask warm-up questions about my hometown and daily life, one at a time. After each answer, give brief band-style feedback then ask the next question.",
     },
     {
       id: "part2-cue",
-      title: "Part 2 · Cue card",
-      blurb: "1–2 minute long turn practice",
+      title: "Exam · Part 2 cue card",
+      blurb: "1–2 minute long turn",
       prompt:
         "Give me an IELTS Speaking Part 2 cue card (describe a memorable journey). Then listen to my long turn. After I finish, score Fluency, Lexical Resource, Grammar, and Pronunciation briefly and suggest two stronger phrases.",
     },
     {
       id: "part3-discussion",
-      title: "Part 3 · Discussion",
-      blurb: "Abstract follow-up questions",
+      title: "Exam · Part 3 discussion",
+      blurb: "Travel & culture follow-ups",
       prompt:
-        "Let's practice IELTS Speaking Part 3 on the topic of travel and culture. Ask thoughtful discussion questions one at a time, challenge my ideas politely, and give short coaching notes after each answer.",
-    },
-    {
-      id: "campus-tour",
-      title: "Situation · Campus help",
-      blurb: "Asking for directions / info",
-      prompt:
-        "Situational dialogue: I am a new international student on campus. You are a helpful receptionist. Start by greeting me and offering help. Keep the conversation interactive and correct unnatural phrasing gently.",
+        "IELTS Speaking Part 3 on travel and culture. Ask thoughtful discussion questions one at a time, challenge my ideas politely, and give short coaching notes after each answer.",
     },
   ],
   listening: [
@@ -151,9 +204,10 @@ export const SKILL_META: Record<
   },
   speaking: {
     name: "Speaking",
-    tagline: "Situational dialogue with live coaching",
+    tagline: "Real-life situations + exam practice",
     accent: "speaking",
-    description: "Parts 1–3 and role-play with realtime LiveKit tutoring.",
+    description:
+      "Airport, hotel, bank, hospital, café, restaurant, bus & taxi role-plays, plus IELTS Parts 1–3.",
     icon: "mic",
   },
   reading: {

@@ -40,6 +40,31 @@ export function ChatInterface({ skill, voicePreferences }: ChatInterfaceProps) {
   const meta = SKILL_META[skill];
   const scenarios = SCENARIOS[skill];
 
+  // #region agent log
+  useEffect(() => {
+    if (skill !== "speaking") return;
+    fetch("http://127.0.0.1:7491/ingest/690fa045-b1a0-4e9a-9efa-92fb315579f0", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "ffbe39",
+      },
+      body: JSON.stringify({
+        sessionId: "ffbe39",
+        runId: "situations-v1",
+        hypothesisId: "S1",
+        location: "ChatInterface.tsx:scenarios",
+        message: "speaking scenarios loaded",
+        data: {
+          count: scenarios.length,
+          ids: scenarios.map((s) => s.id),
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+  }, [skill, scenarios]);
+  // #endregion
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamingText]);
