@@ -16,9 +16,7 @@ export function SessionModeProvider({ children }: { children: React.ReactNode })
   const [mode, setMode] = useState<SessionMode>('general');
 
   return (
-    <SessionModeContext.Provider value={{ mode, setMode }}>
-      {children}
-    </SessionModeContext.Provider>
+    <SessionModeContext.Provider value={{ mode, setMode }}>{children}</SessionModeContext.Provider>
   );
 }
 

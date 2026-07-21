@@ -3,8 +3,5 @@
 
 services:
   web:
-    build:
-      target: production
     environment:
-      NODE_ENV: production
       ALLOW_INSECURE_TOKEN_ROUTE: "true"

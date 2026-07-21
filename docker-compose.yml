@@ -17,14 +17,13 @@ services:
     build:
       context: ./web
       dockerfile: Dockerfile
-      target: development
+      target: production
     container_name: ielts-livekit-web
     ports:
       - "${WEB_PORT:-3000}:3000"
     env_file:
       - .env
     environment:
-      NODE_ENV: development
       LIVEKIT_URL: ${LIVEKIT_URL}
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}

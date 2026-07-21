@@ -19,8 +19,7 @@ export const revalidate = 0;
 
 export async function POST(req: Request) {
   const allowInsecureTokenRoute =
-    process.env.NODE_ENV === 'development' ||
-    process.env.ALLOW_INSECURE_TOKEN_ROUTE === 'true';
+    process.env.NODE_ENV === 'development' || process.env.ALLOW_INSECURE_TOKEN_ROUTE === 'true';
 
   if (!allowInsecureTokenRoute) {
     throw new Error(
