@@ -1,121 +1,131 @@
-# IELTS AI Learning Platform
+# IELTS LiveKit Voice Agent
 
-LiveKit Cloud voice tutor for **Speaking** and **Listening** (also available on Reading/Writing) — situational practice with UK / US / Australian accents.
+Realtime voice AI assistant with an IELTS Speaking tutor mode, built on [LiveKit Agents](https://github.com/livekit/agents) (Python) and the [agent-starter-react](https://github.com/livekit-examples/agent-starter-react) web UI.
+
+## What you get
+
+- **General voice assistant** — natural conversation like the [livekit.com](https://livekit.com) demo
+- **IELTS Speaking practice** — Part 1, 2, and 3 style questions with brief band-style feedback
+- **Web UI** — audio visualizer, chat transcript, mic controls, light/dark theme
+
+## Project structure
 
 ```
-Browser (:80) → Frontend → Backend (:8000) → LiveKit Cloud
-                              │                    │
-                         Groq/OpenAI chat     livekit-agent
-                                              (STT/LLM/TTS)
+IELTS-LIVEKIT/
+├── agent/              # Python LiveKit voice agent
+├── web/                # Next.js frontend
+├── docker-compose.yml  # Run both services together
+└── .env.example        # Shared environment template
 ```
 
-> **Quick start:** fill `.env` → `.\scripts\start.ps1` → **http://localhost** → Speaking or Listening → **LiveKit voice**
+## Run with Docker (recommended)
 
-**LiveKit credentials** open the audio room. **`GROQ_API_KEY`** (or OpenAI) powers speech-to-text and tutor replies. Both are required for voice answers.
+### Prerequisites
 
-Ollama / multi-GB local model images are **not** used on this branch. That stack remains on `main` as a backup. Self-hosting `livekit-server` in Compose is optional later; **LiveKit Cloud** is the default.
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or Docker Engine + Compose)
 
----
+### 1. Configure environment
 
-## Requirements
-
-| Need | Notes |
-|------|--------|
-| Docker Desktop / Engine | For Compose |
-| LiveKit Cloud | `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` |
-| Groq (recommended) or OpenAI | `GROQ_API_KEY` and/or `OPENAI_API_KEY` |
-| RAM | ~4–8 GB is enough (no local LLMs) |
-
----
-
-## Setup
-
-1. Copy env and fill secrets (never commit real values):
+Copy the example env file and add your LiveKit Cloud credentials:
 
 ```bash
 cp .env.example .env
 ```
 
-2. Start (pulls Hub images — no local build):
+Edit `.env`:
 
-```powershell
-.\scripts\start.ps1
+```env
+LIVEKIT_URL=wss://your-project.livekit.cloud
+LIVEKIT_API_KEY=your_api_key
+LIVEKIT_API_SECRET=your_api_secret
+AGENT_NAME=ielts-voice-agent
+WEB_PORT=3000
 ```
+
+### 2. Build and start
 
 ```bash
-chmod +x scripts/*.sh
-./scripts/start.sh
+docker compose up --build
 ```
 
-Same as `docker compose pull && docker compose up -d`.
+### 3. Test in the browser
 
-| Image on Docker Hub | Role |
-|---------------------|------|
-| `kyawzayarsoe/ielts-ai-backend` | FastAPI + LiveKit tokens + chat |
-| `kyawzayarsoe/ielts-ai-frontend` | Next.js UI (port 80) |
-| `kyawzayarsoe/ielts-ai-livekit-agent` | LiveKit Cloud voice agent |
+Open [http://localhost:3000](http://localhost:3000), allow microphone access, then choose:
 
-| Service | URL |
-|---------|-----|
-| App | **http://localhost** |
-| API | http://localhost:8000 |
-| Docs | http://localhost:8000/docs |
+- **Talk to assistant** — general voice AI
+- **IELTS Speaking practice** — exam-style speaking tutor
 
-3. Open **Speaking** or **Listening** → **LiveKit voice** → Start LiveKit. Use **Chat** mode for text practice (any skill).
-
-Agent-only (host Python): `.\scripts\start-livekit-agent.ps1`
-
-After changing `.env`, recreate containers so they pick up new keys:
-
-```powershell
-docker compose up -d --force-recreate
-```
-
----
-
-## Stack
-
-| Layer | Tech |
-|-------|------|
-| Voice rooms | LiveKit Cloud + `livekit-agent` |
-| Chat LLM | Groq / OpenAI-compatible |
-| STT | Groq Whisper (or OpenAI) |
-| TTS | Edge TTS (free accents) |
-| UI | Next.js (port **80**) |
-| API | FastAPI (`POST /api/livekit/token`) |
-
----
-
-## Project layout
-
-```
-├── agents/ielts_voice/   # LiveKit agent worker (Groq + Edge TTS + VAD)
-├── backend/              # FastAPI + LiveKit tokens + chat
-├── frontend/             # Next.js UI (LiveKitVoiceRoom)
-├── docker/config.yaml    # Runtime config (Groq)
-├── k8s/                  # LiveKit-only Kubernetes
-├── scripts/start.*       # Compose up
-└── docker-compose.yml
-```
-
----
-
-## Kubernetes
-
-Edit `k8s/secret.yaml` with LiveKit + Groq keys, then:
+### Useful Docker commands
 
 ```bash
-kubectl apply -k k8s/
+# Run in background
+docker compose up --build -d
+
+# View logs
+docker compose logs -f
+
+# Stop services
+docker compose down
+
+# Rebuild after code changes
+docker compose up --build
 ```
 
----
+### Production-style web build (optional)
 
-## Branch
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
+```
 
-Work lives on `feature/livekit-voice`. `main` keeps the older Ollama multi-model stack as backup.
+## Services
 
----
+| Service | Description | Port |
+|---------|-------------|------|
+| `agent` | Python LiveKit voice worker | — |
+| `web` | Next.js UI + token API | `3000` (configurable via `WEB_PORT`) |
 
-## License
+The agent connects to your LiveKit Cloud project and joins rooms when the web app starts a session.
 
-MIT — see [LICENSE](LICENSE).
+## Manual setup (without Docker)
+
+### Prerequisites
+
+- Python 3.10+ and [uv](https://docs.astral.sh/uv/)
+- Node.js 20+ and pnpm
+- LiveKit Cloud project
+
+### Agent
+
+```bash
+cd agent
+cp .env.example .env.local   # add your credentials
+uv sync
+uv run python src/agent.py download-files
+uv run python src/agent.py dev
+```
+
+### Web
+
+```bash
+cd web
+cp .env.example .env.local   # add your credentials + AGENT_NAME
+pnpm install
+pnpm dev
+```
+
+## Environment variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `LIVEKIT_URL` | Yes | WebSocket URL from LiveKit Cloud |
+| `LIVEKIT_API_KEY` | Yes | LiveKit API key |
+| `LIVEKIT_API_SECRET` | Yes | LiveKit API secret |
+| `AGENT_NAME` | Web only | Must be `ielts-voice-agent` (matches Python agent) |
+| `WEB_PORT` | No | Host port for web UI (default `3000`) |
+
+## References
+
+- https://github.com/livekit/agents
+- https://github.com/livekit-examples/agent-starter-python
+- https://github.com/livekit-examples/agent-starter-react
+- https://docs.livekit.io/agents/start/voice-ai/
