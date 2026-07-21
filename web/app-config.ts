@@ -34,9 +34,9 @@ export interface AppConfig {
 
 export const APP_CONFIG_DEFAULTS: AppConfig = {
   companyName: 'IELTS AI Tutor',
-  pageTitle: 'IELTS AI Practice',
+  pageTitle: 'IELTS Band 8.0 Accelerator',
   pageDescription:
-    'Realtime voice AI tutor for IELTS Speaking, Listening, Reading, and Writing powered by LiveKit',
+    'Voice AI course and tutor for IELTS Speaking, Listening, Reading, and Writing targeting Band 8.0',
 
   supportsChatInput: true,
   supportsVideoInput: false,

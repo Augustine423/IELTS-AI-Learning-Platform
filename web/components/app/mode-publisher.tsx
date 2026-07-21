@@ -17,7 +17,7 @@ export function ModePublisher({ preferences }: ModePublisherProps) {
       return;
     }
 
-    const key = `${preferences.mode}:${preferences.voice.gender}:${preferences.voice.accent}`;
+    const key = `${preferences.mode}:${preferences.voice.gender}:${preferences.voice.accent}:${preferences.lessonId ?? ''}`;
     if (publishedKeyRef.current === key) {
       return;
     }
@@ -26,6 +26,7 @@ export function ModePublisher({ preferences }: ModePublisherProps) {
       JSON.stringify({
         mode: preferences.mode,
         voice: preferences.voice,
+        lessonId: preferences.lessonId ?? null,
       })
     );
 

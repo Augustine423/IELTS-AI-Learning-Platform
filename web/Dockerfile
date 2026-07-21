@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1
 
+# Build on Debian so native deps (e.g. sharp) match the distroless runtime.
 FROM node:22-bookworm-slim AS builder
 
 ENV PNPM_HOME="/pnpm"
@@ -16,36 +17,27 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 
 COPY . .
 
-RUN pnpm exec next lint --fix
+ENV NODE_ENV=production
 RUN pnpm build
 
-FROM node:22-bookworm-slim AS production
+# Distroless has almost no OS packages — much smaller than node:*-slim.
+FROM gcr.io/distroless/nodejs22-debian12:nonroot AS production
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV ALLOW_INSECURE_TOKEN_ROUTE=true
-
-ARG UID=10001
-RUN addgroup \
-    --gid "${UID}" \
-    appgroup \
-  && adduser \
-    --disabled-password \
-    --gecos "" \
-    --home "/app" \
-    --ingroup appgroup \
-    --no-create-home \
-    --uid "${UID}" \
-    nextjs
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
 
 WORKDIR /app
 
-COPY --from=builder --chown=nextjs:appgroup /app/public ./public
-COPY --from=builder --chown=nextjs:appgroup /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:appgroup /app/.next/static ./.next/static
+COPY --from=builder --chown=nonroot:nonroot /app/public ./public
+COPY --from=builder --chown=nonroot:nonroot /app/.next/standalone ./
+COPY --from=builder --chown=nonroot:nonroot /app/.next/static ./.next/static
 
-USER nextjs
+USER nonroot
 
 EXPOSE 3000
 
-CMD ["node", "server.js"]
+# Distroless node image entrypoint is already `node`.
+CMD ["server.js"]

@@ -4,8 +4,9 @@ Realtime voice AI tutor for IELTS Speaking, Listening, Reading, and Writing, bui
 
 ## What you get
 
+- **Band 8.0 course** — guided lessons for Speaking, Listening, Reading, and Writing
 - **General voice assistant** — natural conversation
-- **IELTS practice** — Speaking, Listening, Reading, and Writing with AI coaching
+- **IELTS practice** — free skill practice plus structured lessons with AI coaching
 - **Tutor voices** — male or female with UK, US, or Australian pronunciation
 - **Web UI** — audio visualizer, chat transcript, mic controls (no camera), light/dark theme
 

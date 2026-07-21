@@ -28,7 +28,6 @@ coverage/
 *.gz
 *.tgz
 .tmp
-.cache
 
 # Environment variables
 .env
@@ -47,6 +46,8 @@ coverage/
 README.md
 CONTRIBUTING.md
 LICENSE
+*.md
+TASKS.md
 
 # Coding agent files
 .claude/
@@ -71,3 +72,5 @@ GEMINI.md
 .github/copilot-instructions.md
 .github/personal-instructions.md
 .github/instructions/
+.agents/
+

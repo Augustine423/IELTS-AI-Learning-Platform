@@ -9,7 +9,7 @@ out
 .env.*
 !.env.example
 README.md
-TEMPLATE.md
+LICENSE
 taskfile.yaml
 renovate.json
 coverage
@@ -17,3 +17,9 @@ coverage
 npm-debug.log*
 pnpm-debug.log*
 .DS_Store
+.prettierrc
+.prettierignore
+eslint.config.mjs
+**/*.md
+**/*.test.*
+**/__tests__

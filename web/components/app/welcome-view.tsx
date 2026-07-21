@@ -8,29 +8,13 @@ import type {
   VoicePreference,
 } from '@/components/app/session-mode';
 import { Button } from '@/components/ui/button';
-
-const SKILL_OPTIONS: { mode: SessionMode; label: string; description: string }[] = [
-  {
-    mode: 'speaking',
-    label: 'Speaking',
-    description: 'Part 1–3 practice with band feedback',
-  },
-  {
-    mode: 'listening',
-    label: 'Listening',
-    description: 'Audio-style questions and answers',
-  },
-  {
-    mode: 'reading',
-    label: 'Reading',
-    description: 'Passages, questions, and tips',
-  },
-  {
-    mode: 'writing',
-    label: 'Writing',
-    description: 'Task 1/2 coaching by voice',
-  },
-];
+import {
+  COURSE_GUIDELINES,
+  COURSE_TARGET_BAND,
+  COURSE_TRACKS,
+  type CourseSkill,
+  listLessons,
+} from '@/lib/ielts-course';
 
 const ACCENTS: { id: VoiceAccent; label: string }[] = [
   { id: 'uk', label: 'UK' },
@@ -63,7 +47,7 @@ function WelcomeImage() {
 
 interface WelcomeViewProps {
   startButtonText: string;
-  onStartCall: (mode: SessionMode, voice: VoicePreference) => void;
+  onStartCall: (mode: SessionMode, voice: VoicePreference, lessonId?: string) => void;
 }
 
 export const WelcomeView = ({
@@ -73,23 +57,26 @@ export const WelcomeView = ({
 }: React.ComponentProps<'div'> & WelcomeViewProps) => {
   const [accent, setAccent] = useState<VoiceAccent>('uk');
   const [gender, setGender] = useState<VoiceGender>('female');
+  const [selectedSkill, setSelectedSkill] = useState<CourseSkill>('speaking');
 
   const voice: VoicePreference = { accent, gender };
+  const lessons = listLessons(selectedSkill);
+  const activeTrack = COURSE_TRACKS.find((track) => track.skill === selectedSkill);
 
   return (
-    <div ref={ref}>
+    <div ref={ref} className="max-h-svh overflow-y-auto">
       <section className="bg-background flex flex-col items-center justify-center px-6 py-10 text-center">
         <WelcomeImage />
 
         <p className="text-foreground max-w-prose pt-1 text-lg leading-7 font-semibold">
-          IELTS AI Tutor
+          {COURSE_GUIDELINES.title}
         </p>
-        <p className="text-muted-foreground mt-2 max-w-md text-sm leading-6">
-          Practice Speaking, Listening, Reading, and Writing with a realtime voice AI tutor. Choose
-          a male or female voice with UK, US, or Australian pronunciation.
+        <p className="text-muted-foreground mt-2 max-w-lg text-sm leading-6">
+          Target around Band {COURSE_TARGET_BAND}. Choose a tutor voice, open a skill track, then
+          start a guided lesson with the AI coach.
         </p>
 
-        <div className="mt-8 w-full max-w-md space-y-5 text-left">
+        <div className="mt-8 w-full max-w-2xl space-y-6 text-left">
           <div>
             <p className="text-muted-foreground mb-2 text-xs font-semibold tracking-wide uppercase">
               Tutor voice
@@ -126,22 +113,81 @@ export const WelcomeView = ({
 
           <div>
             <p className="text-muted-foreground mb-2 text-xs font-semibold tracking-wide uppercase">
-              Start practice
+              Band 8.0 skill tracks
             </p>
             <div className="grid gap-2 sm:grid-cols-2">
-              {SKILL_OPTIONS.map((skill) => (
+              {COURSE_TRACKS.map((track) => (
                 <button
-                  key={skill.mode}
+                  key={track.skill}
                   type="button"
-                  onClick={() => onStartCall(skill.mode, voice)}
-                  className="border-border bg-background hover:bg-accent/40 rounded-2xl border px-4 py-3 text-left transition-colors"
+                  onClick={() => setSelectedSkill(track.skill)}
+                  className={`rounded-2xl border px-4 py-3 text-left transition-colors ${
+                    selectedSkill === track.skill
+                      ? 'border-foreground bg-accent/50'
+                      : 'border-border bg-background hover:bg-accent/40'
+                  }`}
                 >
-                  <p className="text-foreground text-sm font-semibold">{skill.label}</p>
-                  <p className="text-muted-foreground mt-1 text-xs leading-5">{skill.description}</p>
+                  <p className="text-foreground text-sm font-semibold">{track.title}</p>
+                  <p className="text-muted-foreground mt-1 text-xs leading-5">{track.summary}</p>
+                </button>
+              ))}
+            </div>
+            {activeTrack && (
+              <p className="text-muted-foreground mt-3 text-xs leading-5">
+                Band 8 focus: {activeTrack.band8Target}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <p className="text-muted-foreground mb-2 text-xs font-semibold tracking-wide uppercase">
+              Lessons
+            </p>
+            <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+              {lessons.map((lesson) => (
+                <button
+                  key={lesson.id}
+                  type="button"
+                  onClick={() => onStartCall(lesson.skill, voice, lesson.id)}
+                  className="border-border bg-background hover:bg-accent/40 w-full rounded-2xl border px-4 py-3 text-left transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-foreground text-sm font-semibold">
+                        {lesson.order}. {lesson.title}
+                      </p>
+                      <p className="text-muted-foreground mt-1 text-xs leading-5">{lesson.goal}</p>
+                    </div>
+                    <span className="text-muted-foreground shrink-0 font-mono text-[10px] uppercase">
+                      {lesson.durationMinutes} min
+                    </span>
+                  </div>
+                  <p className="text-muted-foreground mt-2 text-[11px] tracking-wide uppercase">
+                    Focus: {lesson.bandFocus}
+                  </p>
                 </button>
               ))}
             </div>
           </div>
+
+          <div className="border-border rounded-2xl border px-4 py-3">
+            <p className="text-foreground text-sm font-semibold">Course guidelines</p>
+            <p className="text-muted-foreground mt-2 text-xs leading-5">
+              {COURSE_GUIDELINES.weeklyPlan}
+            </p>
+            <p className="text-muted-foreground mt-2 text-xs leading-5">
+              {COURSE_GUIDELINES.scoringNote}
+            </p>
+          </div>
+
+          <Button
+            size="lg"
+            variant="outline"
+            onClick={() => onStartCall(selectedSkill, voice)}
+            className="w-full rounded-full font-mono text-xs font-bold tracking-wider uppercase"
+          >
+            Free {selectedSkill} practice
+          </Button>
 
           <Button
             size="lg"
@@ -153,8 +199,8 @@ export const WelcomeView = ({
         </div>
       </section>
 
-      <div className="fixed bottom-5 left-0 flex w-full items-center justify-center px-6">
-        <p className="text-muted-foreground max-w-prose pt-1 text-xs leading-5 font-normal text-pretty md:text-sm">
+      <div className="pb-8 text-center">
+        <p className="text-muted-foreground max-w-prose mx-auto px-6 text-xs leading-5 md:text-sm">
           Powered by{' '}
           <a
             target="_blank"

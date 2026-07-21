@@ -11,7 +11,6 @@ services:
   agent:
     image: kyawzayarsoe/ielts-ai-livekit-agent:${IMAGE_TAG:-latest}
     container_name: ielts-livekit-agent
-    command: ["uv", "run", "src/agent.py", "start"]
     env_file:
       - .env
     environment:

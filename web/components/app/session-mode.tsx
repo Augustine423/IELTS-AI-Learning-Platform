@@ -20,6 +20,7 @@ export interface VoicePreference {
 export interface SessionPreferences {
   mode: SessionMode;
   voice: VoicePreference;
+  lessonId?: string;
 }
 
 const DEFAULT_PREFERENCES: SessionPreferences = {

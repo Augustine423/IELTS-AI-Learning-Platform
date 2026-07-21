@@ -42,8 +42,8 @@ export function ViewController({ appConfig }: ViewControllerProps) {
   const { setPreferences } = useSessionMode();
   const { resolvedTheme } = useTheme();
 
-  const handleStartCall = (mode: SessionMode, voice: VoicePreference) => {
-    setPreferences({ mode, voice });
+  const handleStartCall = (mode: SessionMode, voice: VoicePreference, lessonId?: string) => {
+    setPreferences({ mode, voice, lessonId });
     start();
   };
 
