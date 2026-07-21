@@ -33,13 +33,14 @@ export interface AppConfig {
 }
 
 export const APP_CONFIG_DEFAULTS: AppConfig = {
-  companyName: 'IELTS Voice Tutor',
-  pageTitle: 'IELTS Speaking Practice',
-  pageDescription: 'Realtime voice AI assistant and IELTS Speaking tutor powered by LiveKit',
+  companyName: 'IELTS AI Tutor',
+  pageTitle: 'IELTS AI Practice',
+  pageDescription:
+    'Realtime voice AI tutor for IELTS Speaking, Listening, Reading, and Writing powered by LiveKit',
 
   supportsChatInput: true,
-  supportsVideoInput: true,
-  supportsScreenShare: true,
+  supportsVideoInput: false,
+  supportsScreenShare: false,
   isPreConnectBufferEnabled: true,
 
   logo: '/lk-logo.svg',

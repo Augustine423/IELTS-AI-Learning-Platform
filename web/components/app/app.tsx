@@ -29,12 +29,12 @@ interface AppProps {
 }
 
 function AppContent({ appConfig }: AppProps) {
-  const { mode } = useSessionMode();
+  const { preferences } = useSessionMode();
 
   return (
     <>
       <AppSetup />
-      <ModePublisher mode={mode} />
+      <ModePublisher preferences={preferences} />
       <main className="grid h-svh grid-cols-1 place-content-center">
         <ViewController appConfig={appConfig} />
       </main>

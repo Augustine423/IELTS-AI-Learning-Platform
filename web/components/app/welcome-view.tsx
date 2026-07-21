@@ -1,5 +1,47 @@
-import type { SessionMode } from '@/components/app/session-mode';
+'use client';
+
+import { useState } from 'react';
+import type {
+  SessionMode,
+  VoiceAccent,
+  VoiceGender,
+  VoicePreference,
+} from '@/components/app/session-mode';
 import { Button } from '@/components/ui/button';
+
+const SKILL_OPTIONS: { mode: SessionMode; label: string; description: string }[] = [
+  {
+    mode: 'speaking',
+    label: 'Speaking',
+    description: 'Part 1–3 practice with band feedback',
+  },
+  {
+    mode: 'listening',
+    label: 'Listening',
+    description: 'Audio-style questions and answers',
+  },
+  {
+    mode: 'reading',
+    label: 'Reading',
+    description: 'Passages, questions, and tips',
+  },
+  {
+    mode: 'writing',
+    label: 'Writing',
+    description: 'Task 1/2 coaching by voice',
+  },
+];
+
+const ACCENTS: { id: VoiceAccent; label: string }[] = [
+  { id: 'uk', label: 'UK' },
+  { id: 'us', label: 'US' },
+  { id: 'au', label: 'Australian' },
+];
+
+const GENDERS: { id: VoiceGender; label: string }[] = [
+  { id: 'female', label: 'Female' },
+  { id: 'male', label: 'Male' },
+];
 
 function WelcomeImage() {
   return (
@@ -21,7 +63,7 @@ function WelcomeImage() {
 
 interface WelcomeViewProps {
   startButtonText: string;
-  onStartCall: (mode: SessionMode) => void;
+  onStartCall: (mode: SessionMode, voice: VoicePreference) => void;
 }
 
 export const WelcomeView = ({
@@ -29,34 +71,84 @@ export const WelcomeView = ({
   onStartCall,
   ref,
 }: React.ComponentProps<'div'> & WelcomeViewProps) => {
+  const [accent, setAccent] = useState<VoiceAccent>('uk');
+  const [gender, setGender] = useState<VoiceGender>('female');
+
+  const voice: VoicePreference = { accent, gender };
+
   return (
     <div ref={ref}>
-      <section className="bg-background flex flex-col items-center justify-center px-6 text-center">
+      <section className="bg-background flex flex-col items-center justify-center px-6 py-10 text-center">
         <WelcomeImage />
 
         <p className="text-foreground max-w-prose pt-1 text-lg leading-7 font-semibold">
-          IELTS Voice Tutor
+          IELTS AI Tutor
         </p>
         <p className="text-muted-foreground mt-2 max-w-md text-sm leading-6">
-          Talk naturally with a realtime voice AI assistant, or switch into IELTS Speaking practice
-          for exam-style questions and feedback.
+          Practice Speaking, Listening, Reading, and Writing with a realtime voice AI tutor. Choose
+          a male or female voice with UK, US, or Australian pronunciation.
         </p>
 
-        <div className="mt-8 flex w-full max-w-sm flex-col gap-3">
+        <div className="mt-8 w-full max-w-md space-y-5 text-left">
+          <div>
+            <p className="text-muted-foreground mb-2 text-xs font-semibold tracking-wide uppercase">
+              Tutor voice
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {GENDERS.map((option) => (
+                <Button
+                  key={option.id}
+                  type="button"
+                  size="sm"
+                  variant={gender === option.id ? 'default' : 'outline'}
+                  onClick={() => setGender(option.id)}
+                  className="rounded-full font-mono text-xs uppercase"
+                >
+                  {option.label}
+                </Button>
+              ))}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {ACCENTS.map((option) => (
+                <Button
+                  key={option.id}
+                  type="button"
+                  size="sm"
+                  variant={accent === option.id ? 'default' : 'outline'}
+                  onClick={() => setAccent(option.id)}
+                  className="rounded-full font-mono text-xs uppercase"
+                >
+                  {option.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-muted-foreground mb-2 text-xs font-semibold tracking-wide uppercase">
+              Start practice
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {SKILL_OPTIONS.map((skill) => (
+                <button
+                  key={skill.mode}
+                  type="button"
+                  onClick={() => onStartCall(skill.mode, voice)}
+                  className="border-border bg-background hover:bg-accent/40 rounded-2xl border px-4 py-3 text-left transition-colors"
+                >
+                  <p className="text-foreground text-sm font-semibold">{skill.label}</p>
+                  <p className="text-muted-foreground mt-1 text-xs leading-5">{skill.description}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <Button
             size="lg"
-            onClick={() => onStartCall('general')}
-            className="rounded-full font-mono text-xs font-bold tracking-wider uppercase"
+            onClick={() => onStartCall('general', voice)}
+            className="w-full rounded-full font-mono text-xs font-bold tracking-wider uppercase"
           >
             {startButtonText}
-          </Button>
-          <Button
-            size="lg"
-            variant="outline"
-            onClick={() => onStartCall('ielts')}
-            className="rounded-full font-mono text-xs font-bold tracking-wider uppercase"
-          >
-            IELTS Speaking practice
           </Button>
         </div>
       </section>

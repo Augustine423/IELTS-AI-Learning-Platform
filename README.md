@@ -1,12 +1,13 @@
 # IELTS LiveKit Voice Agent
 
-Realtime voice AI assistant with an IELTS Speaking tutor mode, built on [LiveKit Agents](https://github.com/livekit/agents) (Python) and the [agent-starter-react](https://github.com/livekit-examples/agent-starter-react) web UI.
+Realtime voice AI tutor for IELTS Speaking, Listening, Reading, and Writing, built on [LiveKit Agents](https://github.com/livekit/agents) (Python) and the [agent-starter-react](https://github.com/livekit-examples/agent-starter-react) web UI.
 
 ## What you get
 
-- **General voice assistant** — natural conversation like the [livekit.com](https://livekit.com) demo
-- **IELTS Speaking practice** — Part 1, 2, and 3 style questions with brief band-style feedback
-- **Web UI** — audio visualizer, chat transcript, mic controls, light/dark theme
+- **General voice assistant** — natural conversation
+- **IELTS practice** — Speaking, Listening, Reading, and Writing with AI coaching
+- **Tutor voices** — male or female with UK, US, or Australian pronunciation
+- **Web UI** — audio visualizer, chat transcript, mic controls (no camera), light/dark theme
 
 ## Project structure
 
@@ -42,10 +43,11 @@ AGENT_NAME=ielts-voice-agent
 WEB_PORT=3000
 ```
 
-### 2. Build and start
+### 2. Pull and start (Docker Hub images)
 
 ```bash
-docker compose up --build
+docker compose pull
+docker compose up -d
 ```
 
 ### 3. Test in the browser
@@ -58,24 +60,20 @@ Open [http://localhost:3000](http://localhost:3000), allow microphone access, th
 ### Useful Docker commands
 
 ```bash
-# Run in background
-docker compose up --build -d
-
 # View logs
 docker compose logs -f
 
 # Stop services
 docker compose down
 
-# Rebuild after code changes
-docker compose up --build
+# Pin a CI tag (default: latest)
+IMAGE_TAG=sha-8f706f7 docker compose up -d
 ```
 
-### Production-style web build (optional)
+GitHub Actions publishes:
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
-```
+- `kyawzayarsoe/ielts-ai-livekit-web`
+- `kyawzayarsoe/ielts-ai-livekit-agent`
 
 ## Services
 

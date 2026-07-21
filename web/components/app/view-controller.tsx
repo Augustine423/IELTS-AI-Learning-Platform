@@ -5,7 +5,11 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useSessionContext } from '@livekit/components-react';
 import type { AppConfig } from '@/app-config';
 import { AgentSessionView_01 } from '@/components/agents-ui/blocks/agent-session-view-01';
-import { type SessionMode, useSessionMode } from '@/components/app/session-mode';
+import {
+  type SessionMode,
+  type VoicePreference,
+  useSessionMode,
+} from '@/components/app/session-mode';
 import { WelcomeView } from '@/components/app/welcome-view';
 
 const MotionWelcomeView = motion.create(WelcomeView);
@@ -35,17 +39,16 @@ interface ViewControllerProps {
 
 export function ViewController({ appConfig }: ViewControllerProps) {
   const { isConnected, start } = useSessionContext();
-  const { setMode } = useSessionMode();
+  const { setPreferences } = useSessionMode();
   const { resolvedTheme } = useTheme();
 
-  const handleStartCall = (mode: SessionMode) => {
-    setMode(mode);
+  const handleStartCall = (mode: SessionMode, voice: VoicePreference) => {
+    setPreferences({ mode, voice });
     start();
   };
 
   return (
     <AnimatePresence mode="wait">
-      {/* Welcome view */}
       {!isConnected && (
         <MotionWelcomeView
           key="welcome"
@@ -54,14 +57,13 @@ export function ViewController({ appConfig }: ViewControllerProps) {
           onStartCall={handleStartCall}
         />
       )}
-      {/* Session view */}
       {isConnected && (
         <MotionSessionView
           key="session-view"
           {...VIEW_MOTION_PROPS}
           supportsChatInput={appConfig.supportsChatInput}
-          supportsVideoInput={appConfig.supportsVideoInput}
-          supportsScreenShare={appConfig.supportsScreenShare}
+          supportsVideoInput={false}
+          supportsScreenShare={false}
           isPreConnectBufferEnabled={appConfig.isPreConnectBufferEnabled}
           audioVisualizerType={appConfig.audioVisualizerType}
           audioVisualizerColor={

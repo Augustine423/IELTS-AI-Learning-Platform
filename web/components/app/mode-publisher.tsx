@@ -2,36 +2,42 @@
 
 import { useEffect, useRef } from 'react';
 import { useSessionContext } from '@livekit/components-react';
-import type { SessionMode } from '@/components/app/session-mode';
+import type { SessionPreferences } from '@/components/app/session-mode';
 
 interface ModePublisherProps {
-  mode: SessionMode;
+  preferences: SessionPreferences;
 }
 
-export function ModePublisher({ mode }: ModePublisherProps) {
+export function ModePublisher({ preferences }: ModePublisherProps) {
   const { isConnected, room } = useSessionContext();
-  const publishedModeRef = useRef<SessionMode | null>(null);
+  const publishedKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!isConnected || !room?.localParticipant) {
       return;
     }
 
-    if (publishedModeRef.current === mode) {
+    const key = `${preferences.mode}:${preferences.voice.gender}:${preferences.voice.accent}`;
+    if (publishedKeyRef.current === key) {
       return;
     }
 
-    const payload = new TextEncoder().encode(JSON.stringify({ mode }));
+    const payload = new TextEncoder().encode(
+      JSON.stringify({
+        mode: preferences.mode,
+        voice: preferences.voice,
+      })
+    );
 
     room.localParticipant
       .publishData(payload, { reliable: true })
       .then(() => {
-        publishedModeRef.current = mode;
+        publishedKeyRef.current = key;
       })
       .catch((error: unknown) => {
-        console.error('Failed to publish session mode:', error);
+        console.error('Failed to publish session preferences:', error);
       });
-  }, [isConnected, room, mode]);
+  }, [isConnected, room, preferences]);
 
   return null;
 }

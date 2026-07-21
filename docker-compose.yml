@@ -1,8 +1,15 @@
+# Pull and run images published by GitHub Actions.
+#
+# Usage:
+#   docker compose pull
+#   docker compose up -d
+#
+# Optional tag override (default: latest):
+#   IMAGE_TAG=sha-8f706f7 docker compose up -d
+
 services:
   agent:
-    build:
-      context: ./agent
-      dockerfile: Dockerfile
+    image: kyawzayarsoe/ielts-ai-livekit-agent:${IMAGE_TAG:-latest}
     container_name: ielts-livekit-agent
     command: ["uv", "run", "src/agent.py", "start"]
     env_file:
@@ -14,20 +21,19 @@ services:
     restart: unless-stopped
 
   web:
-    build:
-      context: ./web
-      dockerfile: Dockerfile
-      target: production
+    image: kyawzayarsoe/ielts-ai-livekit-web:${IMAGE_TAG:-latest}
     container_name: ielts-livekit-web
     ports:
       - "${WEB_PORT:-3000}:3000"
     env_file:
       - .env
     environment:
+      NODE_ENV: production
       LIVEKIT_URL: ${LIVEKIT_URL}
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
       AGENT_NAME: ${AGENT_NAME:-ielts-voice-agent}
+      ALLOW_INSECURE_TOKEN_ROUTE: "true"
     depends_on:
       - agent
     restart: unless-stopped
