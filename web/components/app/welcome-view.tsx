@@ -1,5 +1,5 @@
-import { Button } from '@/components/ui/button';
 import type { SessionMode } from '@/components/app/session-mode';
+import { Button } from '@/components/ui/button';
 
 function WelcomeImage() {
   return (

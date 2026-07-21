@@ -35,7 +35,6 @@ FROM base AS production
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV ALLOW_INSECURE_TOKEN_ROUTE=true
 
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
