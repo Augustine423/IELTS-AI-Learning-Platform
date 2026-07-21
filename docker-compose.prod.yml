@@ -1,0 +1,10 @@
+# Production-oriented compose override.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
+
+services:
+  web:
+    build:
+      target: production
+    environment:
+      NODE_ENV: production
+      ALLOW_INSECURE_TOKEN_ROUTE: "true"
