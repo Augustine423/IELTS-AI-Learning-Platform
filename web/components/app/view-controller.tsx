@@ -5,8 +5,13 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useSessionContext } from '@livekit/components-react';
 import type { AppConfig } from '@/app-config';
 import { AgentSessionView_01 } from '@/components/agents-ui/blocks/agent-session-view-01';
+<<<<<<< HEAD
 import { WelcomeView } from '@/components/app/welcome-view';
 import { useSessionMode, type SessionMode } from '@/components/app/session-mode';
+=======
+import { type SessionMode, useSessionMode } from '@/components/app/session-mode';
+import { WelcomeView } from '@/components/app/welcome-view';
+>>>>>>> 271248fdc7e11031fb3953d25318566fa44a489f
 
 const MotionWelcomeView = motion.create(WelcomeView);
 const MotionSessionView = motion.create(AgentSessionView_01);
