@@ -1,10 +1,5 @@
-<<<<<<< HEAD
-import { Button } from '@/components/ui/button';
-import type { SessionMode } from '@/components/app/session-mode';
-=======
 import type { SessionMode } from '@/components/app/session-mode';
 import { Button } from '@/components/ui/button';
->>>>>>> 271248fdc7e11031fb3953d25318566fa44a489f
 
 function WelcomeImage() {
   return (
