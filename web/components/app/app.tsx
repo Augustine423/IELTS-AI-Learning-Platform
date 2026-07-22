@@ -10,8 +10,8 @@ import { StartAudioButton } from '@/components/agents-ui/start-audio-button';
 import { ModePublisher } from '@/components/app/mode-publisher';
 import {
   SessionModeProvider,
-  useSessionMode,
   type SessionPreferences,
+  useSessionMode,
 } from '@/components/app/session-mode';
 import { ViewController } from '@/components/app/view-controller';
 import { Toaster } from '@/components/ui/sonner';

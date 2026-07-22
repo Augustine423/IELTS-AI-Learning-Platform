@@ -10,7 +10,7 @@ import {
   type VoicePreference,
   useSessionMode,
 } from '@/components/app/session-mode';
-import { WelcomeView, type WelcomeVariant } from '@/components/app/welcome-view';
+import { type WelcomeVariant, WelcomeView } from '@/components/app/welcome-view';
 
 const MotionWelcomeView = motion.create(WelcomeView);
 const MotionSessionView = motion.create(AgentSessionView_01);

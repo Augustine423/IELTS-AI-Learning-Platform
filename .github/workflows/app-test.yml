@@ -128,6 +128,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Create placeholder env for compose validation
+        run: |
+          printf '%s\n' \
+            'LIVEKIT_URL=wss://example.livekit.cloud' \
+            'LIVEKIT_API_KEY=test_key' \
+            'LIVEKIT_API_SECRET=test_secret' \
+            'AGENT_NAME=ielts-voice-agent' \
+            'WEB_PORT=3000' \
+            'OLLAMA_MODEL=qwen2.5:3b-instruct' \
+            'OLLAMA_BASE_URL=http://ollama:11434' > .env
       - name: Validate compose file
         run: |
           docker compose -f docker-compose.yml config >/tmp/compose.out

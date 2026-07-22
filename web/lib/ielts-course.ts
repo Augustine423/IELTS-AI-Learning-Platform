@@ -343,11 +343,7 @@ export const COURSE_TRACKS: SkillTrack[] = [
         durationMinutes: 20,
         bandFocus: 'Lexical inference',
         goal: 'Infer meaning from context without translating every word.',
-        outcomes: [
-          'Use surrounding clues',
-          'Guess then verify',
-          'Build a mini synonym bank',
-        ],
+        outcomes: ['Use surrounding clues', 'Guess then verify', 'Build a mini synonym bank'],
         coachBrief:
           'Ask meaning-from-context questions. Build a short Band 8 synonym set from the passage.',
       },
@@ -416,11 +412,7 @@ export const COURSE_TRACKS: SkillTrack[] = [
         durationMinutes: 20,
         bandFocus: 'Task response',
         goal: 'Build a clear position and four-paragraph plan in minutes.',
-        outcomes: [
-          'Write a direct thesis',
-          'Plan two body ideas',
-          'Keep examples relevant',
-        ],
+        outcomes: ['Write a direct thesis', 'Plan two body ideas', 'Keep examples relevant'],
         coachBrief:
           'Give a Task 2 prompt. Coach thesis and outline aloud before any paragraph drafting.',
       },

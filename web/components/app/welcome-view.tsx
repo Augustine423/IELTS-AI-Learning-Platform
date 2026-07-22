@@ -9,14 +9,14 @@ import type {
   VoicePreference,
 } from '@/components/app/session-mode';
 import { Button } from '@/components/ui/button';
+import { COURSE_GUIDELINES, COURSE_TARGET_BAND, listLessons } from '@/lib/ielts-course';
 import {
   SAMPLE_LISTENING_PASSAGES,
   SAMPLE_READING_PASSAGES,
   SKILL_META,
-  splitParagraphIntoLines,
   type SkillId,
+  splitParagraphIntoLines,
 } from '@/lib/skill-content';
-import { COURSE_GUIDELINES, COURSE_TARGET_BAND, listLessons } from '@/lib/ielts-course';
 
 const ACCENTS: { id: VoiceAccent; label: string }[] = [
   { id: 'uk', label: 'UK' },
@@ -148,8 +148,8 @@ export const WelcomeView = ({
             {COURSE_GUIDELINES.title}
           </p>
           <p className="text-muted-foreground mt-3 max-w-xl text-sm leading-6">
-            Choose a skill page. Speaking, Listening, and Reading use the LiveKit voice agent. Writing
-            uses a free local Ollama LLM in Docker.
+            Choose a skill page. Speaking, Listening, and Reading use the LiveKit voice agent.
+            Writing uses a free local Ollama LLM in Docker.
           </p>
           <div className="mt-8 grid w-full max-w-3xl gap-3 text-left sm:grid-cols-2">
             {skills.map((skill) => {
@@ -186,7 +186,9 @@ export const WelcomeView = ({
     return (
       <div ref={ref} className="max-h-svh overflow-y-auto">
         <section className="bg-background mx-auto flex w-full max-w-3xl flex-col px-6 py-10">
-          <p className="text-foreground text-2xl font-semibold tracking-tight">Listening practice</p>
+          <p className="text-foreground text-2xl font-semibold tracking-tight">
+            Listening practice
+          </p>
           <p className="text-muted-foreground mt-2 text-sm leading-6">
             Pick a sample IELTS-style paragraph or paste your own story. The AI will read it aloud,
             then ask questions about it.
@@ -246,7 +248,9 @@ export const WelcomeView = ({
             </div>
 
             <div className="border-border rounded-2xl border px-4 py-3">
-              <p className="text-foreground text-sm font-semibold">Selected: {activeListening.title}</p>
+              <p className="text-foreground text-sm font-semibold">
+                Selected: {activeListening.title}
+              </p>
               <p className="text-muted-foreground mt-2 max-h-40 overflow-y-auto text-xs leading-5">
                 {activeListening.paragraph}
               </p>
@@ -340,7 +344,9 @@ export const WelcomeView = ({
             </div>
 
             <div className="border-border rounded-2xl border px-4 py-3">
-              <p className="text-foreground text-sm font-semibold">Lines to read: {activeReading.title}</p>
+              <p className="text-foreground text-sm font-semibold">
+                Lines to read: {activeReading.title}
+              </p>
               <ol className="text-muted-foreground mt-2 max-h-48 list-decimal space-y-2 overflow-y-auto pl-5 text-xs leading-5">
                 {activeReading.lines.map((line) => (
                   <li key={line}>{line}</li>
@@ -376,8 +382,8 @@ export const WelcomeView = ({
       <section className="bg-background mx-auto flex w-full max-w-3xl flex-col px-6 py-10">
         <p className="text-foreground text-2xl font-semibold tracking-tight">Speaking practice</p>
         <p className="text-muted-foreground mt-2 text-sm leading-6">
-          Keep using the current LiveKit voice agent for IELTS Speaking Parts 1–3. Target around Band{' '}
-          {COURSE_TARGET_BAND}.
+          Keep using the current LiveKit voice agent for IELTS Speaking Parts 1–3. Target around
+          Band {COURSE_TARGET_BAND}.
         </p>
 
         <div className="mt-8 space-y-6">

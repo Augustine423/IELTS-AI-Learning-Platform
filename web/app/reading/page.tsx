@@ -7,10 +7,6 @@ export default async function ReadingPage() {
   const appConfig = await getAppConfig(hdrs);
 
   return (
-    <App
-      appConfig={appConfig}
-      welcomeVariant="reading"
-      initialPreferences={{ mode: 'reading' }}
-    />
+    <App appConfig={appConfig} welcomeVariant="reading" initialPreferences={{ mode: 'reading' }} />
   );
 }

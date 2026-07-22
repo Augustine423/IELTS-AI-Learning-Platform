@@ -2,12 +2,7 @@
 
 import { createContext, useContext, useState } from 'react';
 
-export type SessionMode =
-  | 'general'
-  | 'speaking'
-  | 'listening'
-  | 'writing'
-  | 'reading';
+export type SessionMode = 'general' | 'speaking' | 'listening' | 'writing' | 'reading';
 
 export type VoiceGender = 'female' | 'male';
 export type VoiceAccent = 'us' | 'uk' | 'au';

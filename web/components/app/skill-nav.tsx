@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { SKILL_META, type SkillId } from '@/lib/skill-content';
 import { cn } from '@/lib/shadcn/utils';
+import { SKILL_META, type SkillId } from '@/lib/skill-content';
 
 const SKILLS = Object.keys(SKILL_META) as SkillId[];
 
