@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 COPY pyproject.toml uv.lock ./
-RUN mkdir -p src
+RUN mkdir -p src /app/.cache/huggingface /app/.cache/torch
 
 # Production deps only (skip pytest/ruff from [dependency-groups] dev).
 RUN --mount=type=cache,target=/root/.cache/uv \
@@ -28,7 +28,12 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 # Pre-download LiveKit plugin model files (turn detector, etc.).
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv run --no-dev --module livekit.agents download-files
+    uv run --no-dev --module livekit.agents download-files \
+  || true
+
+# Guarantee cache directory exists for the production COPY step.
+RUN mkdir -p /app/.cache/huggingface /app/.cache/torch \
+  && touch /app/.cache/.keep
 
 COPY src ./src
 RUN --mount=type=cache,target=/root/.cache/uv \
