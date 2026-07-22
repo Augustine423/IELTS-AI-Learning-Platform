@@ -314,12 +314,15 @@ export function AgentControlBar({
             <AgentTrackControl
               variant={variant === 'outline' ? 'outline' : 'default'}
               kind="audioinput"
-              aria-label="Toggle microphone"
+              aria-label={microphoneToggle.enabled ? 'Mute microphone' : 'Unmute microphone'}
               source={Track.Source.Microphone}
               pressed={microphoneToggle.enabled}
+              pending={microphoneToggle.pending}
               disabled={microphoneToggle.pending}
               audioTrack={microphoneTrack}
-              onPressedChange={microphoneToggle.toggle}
+              onPressedChange={(nextEnabled) => {
+                void microphoneToggle.toggle(nextEnabled);
+              }}
               onActiveDeviceChange={handleAudioDeviceChange}
               onMediaDeviceError={handleMicrophoneDeviceSelectError}
               className={cn(

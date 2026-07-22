@@ -8,7 +8,11 @@ import type { AppConfig } from '@/app-config';
 import { AgentSessionProvider } from '@/components/agents-ui/agent-session-provider';
 import { StartAudioButton } from '@/components/agents-ui/start-audio-button';
 import { ModePublisher } from '@/components/app/mode-publisher';
-import { SessionModeProvider, useSessionMode } from '@/components/app/session-mode';
+import {
+  SessionModeProvider,
+  useSessionMode,
+  type SessionPreferences,
+} from '@/components/app/session-mode';
 import { ViewController } from '@/components/app/view-controller';
 import { Toaster } from '@/components/ui/sonner';
 import { useAgentErrors } from '@/hooks/useAgentErrors';
@@ -26,17 +30,19 @@ function AppSetup() {
 
 interface AppProps {
   appConfig: AppConfig;
+  initialPreferences?: Partial<SessionPreferences>;
+  welcomeVariant?: 'hub' | 'speaking' | 'listening' | 'reading';
 }
 
-function AppContent({ appConfig }: AppProps) {
+function AppContent({ appConfig, welcomeVariant }: AppProps) {
   const { preferences } = useSessionMode();
 
   return (
     <>
       <AppSetup />
       <ModePublisher preferences={preferences} />
-      <main className="grid h-svh grid-cols-1 place-content-center">
-        <ViewController appConfig={appConfig} />
+      <main className="grid h-svh grid-cols-1 place-content-center pt-14">
+        <ViewController appConfig={appConfig} welcomeVariant={welcomeVariant} />
       </main>
       <StartAudioButton label="Start Audio" />
       <Toaster
@@ -57,7 +63,7 @@ function AppContent({ appConfig }: AppProps) {
   );
 }
 
-export function App({ appConfig }: AppProps) {
+export function App({ appConfig, initialPreferences, welcomeVariant = 'hub' }: AppProps) {
   const tokenSource = useMemo(() => {
     return typeof process.env.NEXT_PUBLIC_CONN_DETAILS_ENDPOINT === 'string'
       ? getSandboxTokenSource(appConfig)
@@ -71,8 +77,8 @@ export function App({ appConfig }: AppProps) {
 
   return (
     <AgentSessionProvider session={session}>
-      <SessionModeProvider>
-        <AppContent appConfig={appConfig} />
+      <SessionModeProvider initialPreferences={initialPreferences}>
+        <AppContent appConfig={appConfig} welcomeVariant={welcomeVariant} />
       </SessionModeProvider>
     </AgentSessionProvider>
   );

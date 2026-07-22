@@ -17,7 +17,14 @@ export function ModePublisher({ preferences }: ModePublisherProps) {
       return;
     }
 
-    const key = `${preferences.mode}:${preferences.voice.gender}:${preferences.voice.accent}:${preferences.lessonId ?? ''}`;
+    const key = [
+      preferences.mode,
+      preferences.voice.gender,
+      preferences.voice.accent,
+      preferences.lessonId ?? '',
+      preferences.passageTitle ?? '',
+      preferences.passage ?? '',
+    ].join(':');
     if (publishedKeyRef.current === key) {
       return;
     }
@@ -27,6 +34,8 @@ export function ModePublisher({ preferences }: ModePublisherProps) {
         mode: preferences.mode,
         voice: preferences.voice,
         lessonId: preferences.lessonId ?? null,
+        passage: preferences.passage ?? null,
+        passageTitle: preferences.passageTitle ?? null,
       })
     );
 

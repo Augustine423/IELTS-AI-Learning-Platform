@@ -1,0 +1,166 @@
+name: App Test
+
+on:
+  push:
+    branches: [main, master, feature/livekit-voice]
+  pull_request:
+    branches: [main, master, feature/livekit-voice]
+  workflow_dispatch:
+
+concurrency:
+  group: app-test-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web-build:
+    name: Web lint and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck and build
+        run: pnpm build
+        env:
+          AGENT_NAME: ielts-voice-agent
+          LIVEKIT_URL: wss://example.livekit.cloud
+          LIVEKIT_API_KEY: test_key
+          LIVEKIT_API_SECRET: test_secret
+          ALLOW_INSECURE_TOKEN_ROUTE: "true"
+          OLLAMA_BASE_URL: http://127.0.0.1:11434
+          OLLAMA_MODEL: qwen2.5:3b-instruct
+      - name: Verify skill pages exist
+        run: |
+          test -f app/page.tsx
+          test -f app/speaking/page.tsx
+          test -f app/listening/page.tsx
+          test -f app/reading/page.tsx
+          test -f app/writing/page.tsx
+          test -f app/api/writing/suggest/route.ts
+
+  writing-api-smoke:
+    name: Writing API smoke (fallback)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm build
+        env:
+          AGENT_NAME: ielts-voice-agent
+          LIVEKIT_URL: wss://example.livekit.cloud
+          LIVEKIT_API_KEY: test_key
+          LIVEKIT_API_SECRET: test_secret
+          ALLOW_INSECURE_TOKEN_ROUTE: "true"
+      - name: Start Next.js and test writing suggest API
+        env:
+          AGENT_NAME: ielts-voice-agent
+          LIVEKIT_URL: wss://example.livekit.cloud
+          LIVEKIT_API_KEY: test_key
+          LIVEKIT_API_SECRET: test_secret
+          ALLOW_INSECURE_TOKEN_ROUTE: "true"
+          OLLAMA_BASE_URL: http://127.0.0.1:9
+          OLLAMA_MODEL: qwen2.5:3b-instruct
+          PORT: "3000"
+        run: |
+          pnpm start &
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:3000/writing >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl -sf http://127.0.0.1:3000/speaking >/dev/null
+          curl -sf http://127.0.0.1:3000/listening >/dev/null
+          curl -sf http://127.0.0.1:3000/reading >/dev/null
+          curl -sf http://127.0.0.1:3000/writing >/dev/null
+          RESPONSE=$(curl -sf -X POST http://127.0.0.1:3000/api/writing/suggest \
+            -H 'Content-Type: application/json' \
+            -d '{"text":"people is using internet too much"}')
+          echo "$RESPONSE" | grep -q '"improved"'
+          echo "$RESPONSE" | grep -q '"provider"'
+          echo "Writing API smoke passed"
+
+  agent-unit:
+    name: Agent unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: uv sync --locked
+      - name: Run offline unit tests
+        run: uv run pytest tests/test_unit_skills.py -q
+
+  compose-config:
+    name: Docker Compose config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate compose file
+        run: |
+          docker compose -f docker-compose.yml config >/tmp/compose.out
+          grep -q 'ollama' /tmp/compose.out
+          grep -q 'ielts-ai-livekit-web' /tmp/compose.out
+          grep -q 'ielts-ai-livekit-agent' /tmp/compose.out
+
+  summary:
+    name: App test summary
+    needs: [web-build, writing-api-smoke, agent-unit, compose-config]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write summary
+        env:
+          WEB: ${{ needs.web-build.result }}
+          WRITE: ${{ needs.writing-api-smoke.result }}
+          AGENT: ${{ needs.agent-unit.result }}
+          COMPOSE: ${{ needs.compose-config.result }}
+        run: |
+          {
+            echo "## App test summary"
+            echo "| Check | Result |"
+            echo "|-------|--------|"
+            echo "| Web build | ${WEB} |"
+            echo "| Writing API smoke | ${WRITE} |"
+            echo "| Agent unit | ${AGENT} |"
+            echo "| Compose config | ${COMPOSE} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Fail if any required job failed
+        if: |
+          needs.web-build.result == 'failure' ||
+          needs.writing-api-smoke.result == 'failure' ||
+          needs.agent-unit.result == 'failure' ||
+          needs.compose-config.result == 'failure'
+        run: exit 1

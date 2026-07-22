@@ -2,9 +2,15 @@ import { headers } from 'next/headers';
 import { App } from '@/components/app/app';
 import { getAppConfig } from '@/lib/utils';
 
-export default async function Page() {
+export default async function ListeningPage() {
   const hdrs = await headers();
   const appConfig = await getAppConfig(hdrs);
 
-  return <App appConfig={appConfig} welcomeVariant="hub" />;
+  return (
+    <App
+      appConfig={appConfig}
+      welcomeVariant="listening"
+      initialPreferences={{ mode: 'listening' }}
+    />
+  );
 }

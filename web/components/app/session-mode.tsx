@@ -21,6 +21,9 @@ export interface SessionPreferences {
   mode: SessionMode;
   voice: VoicePreference;
   lessonId?: string;
+  /** Custom or sample paragraph/story for listening or reading practice */
+  passage?: string;
+  passageTitle?: string;
 }
 
 const DEFAULT_PREFERENCES: SessionPreferences = {
@@ -40,8 +43,17 @@ const SessionModeContext = createContext<{
   setPreferences: () => {},
 });
 
-export function SessionModeProvider({ children }: { children: React.ReactNode }) {
-  const [preferences, setPreferences] = useState<SessionPreferences>(DEFAULT_PREFERENCES);
+export function SessionModeProvider({
+  children,
+  initialPreferences,
+}: {
+  children: React.ReactNode;
+  initialPreferences?: Partial<SessionPreferences>;
+}) {
+  const [preferences, setPreferences] = useState<SessionPreferences>({
+    ...DEFAULT_PREFERENCES,
+    ...initialPreferences,
+  });
 
   return (
     <SessionModeContext.Provider

@@ -22,6 +22,7 @@ from livekit.agents import (
 from livekit.plugins import ai_coustics
 
 from course import COURSE_TARGET_BAND, get_lesson, lesson_instructions
+from passages import get_default_listening_passage, split_into_lines
 from web_search import format_search_for_voice, search_ielts_web
 
 logger = logging.getLogger("agent")
@@ -143,31 +144,34 @@ LISTENING_INSTRUCTIONS = textwrap.dedent(
 
     # IELTS Listening mode
 
-    - Read short passages or dialogues clearly, then ask exam-style questions one at a time.
-    - Cover common formats: multiple choice, sentence completion, matching, and short answers.
-    - Speak at a natural exam-like pace. Offer one replay if the user asks.
-    - After the user answers, confirm the correct answer and give a brief tip for that question type.
-    - Keep each round short, then offer another question or a short section.
-    - Use search_web_for_ielts when you need realistic topic facts for a dialogue or lecture drill.
+    - Your job is to READ the selected paragraph or story aloud clearly, then ask exam-style questions about it.
+    - First tell the learner the passage title, then read the full passage at a natural exam-like pace.
+    - After reading, ask one question at a time from the sample questions when available, or create similar questions.
+    - Cover formats such as short answer, multiple choice spoken options, and sentence completion.
+    - Offer one replay of the passage or a sentence if the learner asks.
+    - After each answer, confirm the correct answer briefly and give one listening tip.
+    - Use get_listening_passage before inventing content when a passage is already selected.
     - Use end_practice_session when the user wants to stop.
     """
 )
 
 READING_INSTRUCTIONS = textwrap.dedent(
     f"""\
-    You are an expert IELTS Reading tutor using voice practice.
+    You are an expert IELTS pronunciation coach for reading aloud.
 
     {VOICE_OUTPUT_RULES}
 
     {WEB_SEARCH_RULES}
 
-    # IELTS Reading mode
+    # IELTS Reading aloud mode
 
-    - Present a short passage in clear spoken form, then ask one question at a time.
-    - Use True False Not Given, matching headings, multiple choice, and short-answer styles.
-    - Teach skimming and scanning strategies in short tips after each answer.
-    - Keep passages concise enough for voice, then discuss meaning, vocabulary, and traps.
-    - Use search_web_for_ielts to gather short factual material for passage practice when needed.
+    - The learner will read a passage line by line into the microphone.
+    - Ask them to read the first line. Wait. Then give pronunciation feedback for that line only.
+    - Feedback should cover word stress, problematic sounds, linking, and clarity.
+    - Model the corrected line once, then ask the learner to repeat it.
+    - After a good repeat, move to the next line.
+    - Keep coaching supportive and specific. Do not discuss reading-comprehension question types in this mode.
+    - Use get_reading_lines to know the ordered lines for the selected passage.
     - Use end_practice_session when the user wants to stop.
     """
 )
@@ -188,6 +192,7 @@ WRITING_INSTRUCTIONS = textwrap.dedent(
     - Give feedback on task response, coherence, lexical resource, and grammar with a band hint.
     - Offer model sentence upgrades one at a time.
     - For Task 2 evidence or examples, use search_web_for_ielts before inventing recent statistics.
+    - Note: the dedicated Writing web page uses a free local Ollama LLM for typed sentence upgrades.
     - Use end_practice_session when the user wants to stop.
     """
 )
@@ -212,7 +217,12 @@ def normalize_mode(mode: str | None) -> str:
     return "general"
 
 
-def build_instructions(mode: str, lesson_id: str | None = None) -> str:
+def build_instructions(
+    mode: str,
+    lesson_id: str | None = None,
+    passage: str | None = None,
+    passage_title: str | None = None,
+) -> str:
     mode = normalize_mode(mode)
     base = GENERAL_INSTRUCTIONS
     if mode == "speaking":
@@ -225,18 +235,39 @@ def build_instructions(mode: str, lesson_id: str | None = None) -> str:
         base = WRITING_INSTRUCTIONS
 
     lesson = get_lesson(lesson_id)
-    if not lesson:
-        return base
+    parts = [base]
+    if lesson:
+        parts.append(
+            textwrap.dedent(
+                f"""\
+                # Active Band {COURSE_TARGET_BAND} lesson
 
-    return textwrap.dedent(
-        f"""\
-        {base}
+                {lesson_instructions(lesson)}
+                """
+            )
+        )
 
-        # Active Band {COURSE_TARGET_BAND} lesson
+    if passage and mode in {"listening", "reading"}:
+        title = passage_title or "Selected passage"
+        lines = split_into_lines(passage)
+        numbered = "\n".join(f"{index}. {line}" for index, line in enumerate(lines, start=1))
+        parts.append(
+            textwrap.dedent(
+                f"""\
+                # Selected practice content
 
-        {lesson_instructions(lesson)}
-        """
-    )
+                Title: {title}
+
+                Full passage:
+                {passage}
+
+                Numbered lines for coaching:
+                {numbered}
+                """
+            )
+        )
+
+    return "\n\n".join(part.strip() for part in parts if part.strip())
 
 
 def resolve_voice_id(voice: dict | None) -> str:
@@ -259,7 +290,11 @@ def resolve_english_locale(voice: dict | None) -> str:
     return "en-US"
 
 
-def greeting_instructions(mode: str, lesson_id: str | None = None) -> str:
+def greeting_instructions(
+    mode: str,
+    lesson_id: str | None = None,
+    passage_title: str | None = None,
+) -> str:
     mode = normalize_mode(mode)
     lesson = get_lesson(lesson_id)
     if lesson:
@@ -274,14 +309,18 @@ def greeting_instructions(mode: str, lesson_id: str | None = None) -> str:
             "Ask whether they want Part 1, Part 2, or Part 3 practice."
         )
     if mode == "listening":
+        title = passage_title or "the selected passage"
         return (
             "Greet the user as their IELTS Listening tutor. "
-            "Ask if they want a short dialogue practice or question-type tips first."
+            f"Say you will read {title}, then ask questions about it. "
+            "Start by reading the passage clearly."
         )
     if mode == "reading":
+        title = passage_title or "the selected passage"
         return (
-            "Greet the user as their IELTS Reading tutor. "
-            "Ask if they want a short passage with questions or strategy tips first."
+            "Greet the user as their pronunciation coach for reading aloud. "
+            f"Explain that you will coach {title} line by line. "
+            "Ask them to read line one when ready."
         )
     if mode == "writing":
         return (
@@ -292,12 +331,25 @@ def greeting_instructions(mode: str, lesson_id: str | None = None) -> str:
 
 
 class Assistant(Agent):
-    def __init__(self, mode: str = "general", lesson_id: str | None = None) -> None:
+    def __init__(
+        self,
+        mode: str = "general",
+        lesson_id: str | None = None,
+        passage: str | None = None,
+        passage_title: str | None = None,
+    ) -> None:
         self._mode = normalize_mode(mode)
         self._lesson_id = lesson_id
+        self._passage = passage
+        self._passage_title = passage_title
         super().__init__(
             llm=inference.LLM(model="openai/gpt-4.1-mini"),
-            instructions=build_instructions(self._mode, lesson_id),
+            instructions=build_instructions(
+                self._mode,
+                lesson_id,
+                passage,
+                passage_title,
+            ),
         )
 
     @function_tool
@@ -311,7 +363,9 @@ class Assistant(Agent):
             return "Invalid part. Choose part 1, 2, or 3."
 
         self._mode = "speaking"
-        await self.update_instructions(build_instructions("speaking", self._lesson_id))
+        await self.update_instructions(
+            build_instructions("speaking", self._lesson_id, self._passage, self._passage_title)
+        )
         logger.info("Started IELTS part %s", part)
         return f"Switched to IELTS Speaking Part {part}. Begin the appropriate flow."
 
@@ -332,6 +386,37 @@ class Assistant(Agent):
                 f"with a Band {COURSE_TARGET_BAND} target."
             )
         return lesson_instructions(lesson)
+
+    @function_tool
+    async def get_listening_passage(self, context: RunContext) -> dict:
+        """Return the active listening paragraph/story and suggested questions."""
+        if self._passage:
+            return {
+                "title": self._passage_title or "Selected passage",
+                "paragraph": self._passage,
+                "sample_questions": [],
+            }
+        default = get_default_listening_passage()
+        return {
+            "title": default["title"],
+            "paragraph": default["paragraph"],
+            "sample_questions": default["sample_questions"],
+        }
+
+    @function_tool
+    async def get_reading_lines(self, context: RunContext) -> dict:
+        """Return numbered lines for pronunciation coaching."""
+        paragraph = self._passage
+        title = self._passage_title or "Selected passage"
+        if not paragraph:
+            default = get_default_listening_passage()
+            paragraph = str(default["paragraph"])
+            title = str(default["title"])
+        lines = split_into_lines(str(paragraph))
+        return {
+            "title": title,
+            "lines": [{"number": index, "text": line} for index, line in enumerate(lines, start=1)],
+        }
 
     @function_tool
     async def search_web_for_ielts(
@@ -366,6 +451,8 @@ class Assistant(Agent):
         """End the IELTS practice session and return to general assistant mode."""
         self._mode = "general"
         self._lesson_id = None
+        self._passage = None
+        self._passage_title = None
         await self.update_instructions(build_instructions("general"))
         logger.info("Ended IELTS practice session")
         return (
@@ -407,31 +494,40 @@ async def my_agent(ctx: JobContext):
         mode: str,
         voice: dict | None,
         lesson_id: str | None,
+        passage: str | None,
+        passage_title: str | None,
     ) -> None:
         nonlocal applied_key
 
         mode = normalize_mode(mode)
         voice_id = resolve_voice_id(voice)
         locale = resolve_english_locale(voice)
-        key = f"{mode}:{voice_id}:{lesson_id or ''}:{locale}"
+        key = f"{mode}:{voice_id}:{lesson_id or ''}:{passage_title or ''}:{passage or ''}:{locale}"
         if applied_key == key:
             return
 
         assistant._mode = mode
         assistant._lesson_id = lesson_id
-        await assistant.update_instructions(build_instructions(mode, lesson_id))
+        assistant._passage = passage
+        assistant._passage_title = passage_title
+        await assistant.update_instructions(
+            build_instructions(mode, lesson_id, passage, passage_title)
+        )
         tts.update_options(voice=voice_id, language=locale)
         applied_key = key
 
         logger.info(
-            "Applied preferences mode=%s voice=%s lesson=%s locale=%s",
+            "Applied preferences mode=%s voice=%s lesson=%s passage_title=%s locale=%s",
             mode,
             voice or DEFAULT_VOICE,
             lesson_id,
+            passage_title,
             locale,
         )
 
-        await session.generate_reply(instructions=greeting_instructions(mode, lesson_id))
+        await session.generate_reply(
+            instructions=greeting_instructions(mode, lesson_id, passage_title)
+        )
 
     @ctx.room.on("data_received")
     def on_data_received(data_packet: rtc.DataPacket) -> None:
@@ -444,20 +540,25 @@ async def my_agent(ctx: JobContext):
         mode = payload.get("mode")
         voice = payload.get("voice")
         lesson_id = payload.get("lessonId")
+        passage = payload.get("passage")
+        passage_title = payload.get("passageTitle")
         if mode not in VALID_MODES:
             return
 
         logger.info(
-            "Received session preferences: mode=%s voice=%s lesson=%s",
+            "Received session preferences: mode=%s voice=%s lesson=%s passage_title=%s",
             mode,
             voice,
             lesson_id,
+            passage_title,
         )
         asyncio.create_task(
             apply_preferences(
                 mode,
                 voice if isinstance(voice, dict) else None,
                 lesson_id if isinstance(lesson_id, str) else None,
+                passage if isinstance(passage, str) else None,
+                passage_title if isinstance(passage_title, str) else None,
             )
         )
 

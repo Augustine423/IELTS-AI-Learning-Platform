@@ -112,20 +112,20 @@ export function useInputControls({
   const handleToggleCamera = useCallback(
     async (enabled?: boolean) => {
       if (screenShareToggle.enabled) {
-        screenShareToggle.toggle(false);
+        await screenShareToggle.toggle(false);
       }
-      await cameraToggle.toggle(enabled);
-      // persist video input enabled preference
-      saveVideoInputEnabled(!cameraToggle.enabled);
+      const targetEnabled = typeof enabled === 'boolean' ? enabled : !cameraToggle.enabled;
+      await cameraToggle.toggle(targetEnabled);
+      saveVideoInputEnabled(targetEnabled);
     },
     [cameraToggle, screenShareToggle, saveVideoInputEnabled]
   );
 
   const handleToggleMicrophone = useCallback(
     async (enabled?: boolean) => {
-      await microphoneToggle.toggle(enabled);
-      // persist audio input enabled preference
-      saveAudioInputEnabled(!microphoneToggle.enabled);
+      const targetEnabled = typeof enabled === 'boolean' ? enabled : !microphoneToggle.enabled;
+      await microphoneToggle.toggle(targetEnabled);
+      saveAudioInputEnabled(targetEnabled);
     },
     [microphoneToggle, saveAudioInputEnabled]
   );

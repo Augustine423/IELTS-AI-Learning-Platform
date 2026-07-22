@@ -10,7 +10,7 @@ import {
   type VoicePreference,
   useSessionMode,
 } from '@/components/app/session-mode';
-import { WelcomeView } from '@/components/app/welcome-view';
+import { WelcomeView, type WelcomeVariant } from '@/components/app/welcome-view';
 
 const MotionWelcomeView = motion.create(WelcomeView);
 const MotionSessionView = motion.create(AgentSessionView_01);
@@ -35,15 +35,22 @@ const VIEW_MOTION_PROPS = {
 
 interface ViewControllerProps {
   appConfig: AppConfig;
+  welcomeVariant?: WelcomeVariant;
 }
 
-export function ViewController({ appConfig }: ViewControllerProps) {
+export function ViewController({ appConfig, welcomeVariant = 'hub' }: ViewControllerProps) {
   const { isConnected, start } = useSessionContext();
   const { setPreferences } = useSessionMode();
   const { resolvedTheme } = useTheme();
 
-  const handleStartCall = (mode: SessionMode, voice: VoicePreference, lessonId?: string) => {
-    setPreferences({ mode, voice, lessonId });
+  const handleStartCall = (
+    mode: SessionMode,
+    voice: VoicePreference,
+    lessonId?: string,
+    passage?: string,
+    passageTitle?: string
+  ) => {
+    setPreferences({ mode, voice, lessonId, passage, passageTitle });
     start();
   };
 
@@ -54,6 +61,7 @@ export function ViewController({ appConfig }: ViewControllerProps) {
           key="welcome"
           {...VIEW_MOTION_PROPS}
           startButtonText={appConfig.startButtonText}
+          welcomeVariant={welcomeVariant}
           onStartCall={handleStartCall}
         />
       )}

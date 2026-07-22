@@ -1,116 +1,73 @@
 # IELTS LiveKit Voice Agent
 
-Realtime voice AI tutor for IELTS Speaking, Listening, Reading, and Writing, built on [LiveKit Agents](https://github.com/livekit/agents) (Python) and the [agent-starter-react](https://github.com/livekit-examples/agent-starter-react) web UI.
+Realtime voice AI tutor for IELTS Speaking, Listening, and Reading, plus a free local Writing LLM, built on [LiveKit Agents](https://github.com/livekit/agents) and Next.js.
 
-## What you get
+## Skill pages
 
-- **Band 8.0 course** — guided lessons for Speaking, Listening, Reading, and Writing
-- **General voice assistant** — natural conversation
-- **IELTS practice** — free skill practice plus structured lessons with AI coaching
-- **Tutor voices** — male or female with UK, US, or Australian pronunciation
-- **Web UI** — audio visualizer, chat transcript, mic controls (no camera), light/dark theme
+| Page | Path | Engine |
+|------|------|--------|
+| Home hub | `/` | — |
+| Speaking | `/speaking` | LiveKit voice agent (current) |
+| Listening | `/listening` | LiveKit reads a paragraph, then asks questions |
+| Reading aloud | `/reading` | You read line by line; AI coaches pronunciation |
+| Writing | `/writing` | Free Ollama LLM in Docker (`qwen2.5:3b-instruct`) |
+
+Mic mute/unmute is supported in the session control bar.
 
 ## Project structure
 
 ```
 IELTS-LIVEKIT/
 ├── agent/              # Python LiveKit voice agent
-├── web/                # Next.js frontend
-├── docker-compose.yml  # Run both services together
+├── web/                # Next.js frontend (skill pages)
+├── docker-compose.yml  # web + agent + ollama
 └── .env.example        # Shared environment template
 ```
 
 ## Run with Docker (recommended)
 
-### Prerequisites
-
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or Docker Engine + Compose)
-
 ### 1. Configure environment
-
-Copy the example env file and add your LiveKit Cloud credentials:
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env`:
+Fill in LiveKit Cloud credentials. Optional writing model overrides:
 
 ```env
-LIVEKIT_URL=wss://your-project.livekit.cloud
-LIVEKIT_API_KEY=your_api_key
-LIVEKIT_API_SECRET=your_api_secret
-AGENT_NAME=ielts-voice-agent
-WEB_PORT=3000
+OLLAMA_MODEL=qwen2.5:3b-instruct
+OLLAMA_BASE_URL=http://ollama:11434
 ```
 
-### 2. Pull and start (Docker Hub images)
+### 2. Pull and start
 
 ```bash
 docker compose pull
 docker compose up -d
 ```
 
-### 3. Test in the browser
+Open [http://localhost:3000](http://localhost:3000) and use the skill navigation.
 
-Open [http://localhost:3000](http://localhost:3000), allow microphone access, then choose:
-
-- **Talk to assistant** — general voice AI
-- **IELTS Speaking practice** — exam-style speaking tutor
-
-### Useful Docker commands
+### Useful commands
 
 ```bash
-# View logs
 docker compose logs -f
-
-# Stop services
 docker compose down
-
-# Pin a CI tag (default: latest)
 IMAGE_TAG=sha-8f706f7 docker compose up -d
 ```
 
-GitHub Actions publishes:
+## CI
+
+GitHub Actions:
+
+- `App Test` — web build, writing API smoke, agent unit tests, compose validation
+- `Build and Push Docker Images` — publishes web/agent images
+
+Images:
 
 - `kyawzayarsoe/ielts-ai-livekit-web`
 - `kyawzayarsoe/ielts-ai-livekit-agent`
-
-## Services
-
-| Service | Description | Port |
-|---------|-------------|------|
-| `agent` | Python LiveKit voice worker | — |
-| `web` | Next.js UI + token API | `3000` (configurable via `WEB_PORT`) |
-
-The agent connects to your LiveKit Cloud project and joins rooms when the web app starts a session.
-
-## Manual setup (without Docker)
-
-### Prerequisites
-
-- Python 3.10+ and [uv](https://docs.astral.sh/uv/)
-- Node.js 20+ and pnpm
-- LiveKit Cloud project
-
-### Agent
-
-```bash
-cd agent
-cp .env.example .env.local   # add your credentials
-uv sync
-uv run python src/agent.py download-files
-uv run python src/agent.py dev
-```
-
-### Web
-
-```bash
-cd web
-cp .env.example .env.local   # add your credentials + AGENT_NAME
-pnpm install
-pnpm dev
-```
+- Writing LLM: official `ollama/ollama` image
 
 ## Environment variables
 
@@ -119,12 +76,13 @@ pnpm dev
 | `LIVEKIT_URL` | Yes | WebSocket URL from LiveKit Cloud |
 | `LIVEKIT_API_KEY` | Yes | LiveKit API key |
 | `LIVEKIT_API_SECRET` | Yes | LiveKit API secret |
-| `AGENT_NAME` | Web only | Must be `ielts-voice-agent` (matches Python agent) |
+| `AGENT_NAME` | Web | Must be `ielts-voice-agent` |
 | `WEB_PORT` | No | Host port for web UI (default `3000`) |
+| `OLLAMA_MODEL` | No | Free writing model (default `qwen2.5:3b-instruct`) |
+| `OLLAMA_BASE_URL` | No | Ollama URL inside compose (default `http://ollama:11434`) |
 
 ## References
 
 - https://github.com/livekit/agents
-- https://github.com/livekit-examples/agent-starter-python
-- https://github.com/livekit-examples/agent-starter-react
 - https://docs.livekit.io/agents/start/voice-ai/
+- https://ollama.com/library/qwen2.5
